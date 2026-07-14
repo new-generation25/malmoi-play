@@ -1,0 +1,12 @@
+# Claude Code 로컬 설정(개인 권한 설정이라 공유하지 않는다)
+.claude/settings.local.json
+
+# Vercel CLI
+.vercel
+
+node_modules/
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
