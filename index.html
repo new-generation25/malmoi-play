@@ -185,6 +185,24 @@
   .ph-done .big { font-size: 34px; }
   .ph-warn { font-size: 10px; color: #6a6280; margin-top: 10px; line-height: 1.5; }
 
+  /* ===== 폰 전용 모드 (?p=1 — QR로 들어온 관객) =====
+     관객에게는 무대 스크린을 보여주지 않는다. 각자의 폰에 각자의 게이지가
+     따로 뜨면 무대 화면과 숫자가 서로 다르게 놀기 때문이다. */
+  body.phone-only { padding: 0; justify-content: flex-start; }
+  body.phone-only .screen,
+  body.phone-only .phone-side > .cap,
+  body.phone-only .phone-side > .ph-warn { display: none; }
+  body.phone-only .wrap { max-width: 520px; gap: 0; }
+  body.phone-only .phone-side { width: 100%; gap: 0; }
+  body.phone-only .phone {
+    width: 100%; height: auto; min-height: 100vh;
+    border: none; border-radius: 0; box-shadow: none;
+    padding: 26px 20px 32px;
+  }
+  body.phone-only .ph-opt { padding: 15px; font-size: 15px; }   /* 실제 손가락으로 누른다 */
+  body.phone-only .ph-send { padding: 15px; font-size: 15px; }
+  body.phone-only .ph-d { font-size: 25px; }
+
   /* 좁은 화면(관객이 폰으로 QR 찍고 들어온 경우)에서는 위아래로 쌓는다 */
   @media (max-width: 980px) {
     body { padding: 10px; }
@@ -261,9 +279,14 @@
    비워두면 이 페이지를 띄운 주소를 그대로 QR로 만듭니다.
    따라서 이 화면을 공개 주소로 열면 QR도 그 주소를 가리킵니다.
    localhost로 열면 QR도 localhost가 되어 관객 폰에서는 열리지 않습니다. */
-const JOIN_URL = "" ||
+const BASE_URL = "" ||
   (location.href.startsWith("http") ? location.href.split(/[?#]/)[0]
                                     : "https://malmoi.live/1942");
+
+/* QR은 폰 전용 모드를 가리킨다. 관객 폰에 무대 스크린이 같이 뜨면
+   각자의 게이지가 따로 놀아 무대 화면과 어긋나기 때문이다. */
+const JOIN_URL = BASE_URL + "?p=1";
+const PHONE_ONLY = new URLSearchParams(location.search).get("p") === "1";
 
 /* ── 대본 2막 씬2 "경상도 말모이 작전" 문제 ─────────────── */
 const QUESTIONS = [
@@ -396,6 +419,11 @@ function popBubble(text, hit) {
 
 /* ── 로비: 관객이 하나씩 접속 ───────────────────────────── */
 function startLobby() {
+  if (PHONE_ONLY) {                    // 관객 폰: 무대 연출 없이 곧장 폰 화면만
+    document.body.classList.add("phone-only");
+    renderPhoneLobby();
+    return;
+  }
   drawQR();
   const tick = () => {
     if (joined >= TOTAL) return;
@@ -419,7 +447,7 @@ function startPlay() {
   $("counter").textContent = "작전 진행 중";
   $("hint").textContent = "폰에서 문제를 풀면 게이지가 차오릅니다";
   paintGauge();
-  scheduleCrowd();
+  if (!PHONE_ONLY) scheduleCrowd();    // 관객 폰에서 가상 관객을 또 돌릴 이유가 없다
   renderPhoneQuestion();
 }
 
@@ -555,8 +583,11 @@ function renderPhoneDone() {
     <div class="ph-done">
       <div class="big">✍️</div>
       ${QUESTIONS.length}문제 모두 응답했습니다.<br>
-      <span style="font-size:11px;color:#5d566f">다른 관객들이 아직 원고를<br>채우고 있습니다…</span>
+      <span style="font-size:11px;color:#5d566f">${PHONE_ONLY
+        ? "무대 화면을 봐 주세요.<br>원고가 채워지고 있습니다…"
+        : "다른 관객들이 아직 원고를<br>채우고 있습니다…"}</span>
     </div>`;
+  if (PHONE_ONLY) return;              // 관객 폰에는 무대 게이지가 없다
   $("gaugeMsg").textContent = "남은 관객의 응답을 모으는 중…";
   hurryCrowd();
 }
@@ -582,6 +613,7 @@ $("screen").onclick = () => {
   sabotage();
 };
 document.body.onkeydown = e => {
+  if (PHONE_ONLY) return;                        // 관객이 방해 연출을 발동시키면 안 된다
   if (e.target.tagName === "INPUT") return;      // 주관식 입력의 Enter까지 삼키면 안 된다
   if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); $("screen").click(); }
 };
