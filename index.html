@@ -331,7 +331,6 @@ const TOTAL = 50;                      // 무대에서 시뮬레이션할 관객
 const EXPECTED = TOTAL * QUESTIONS.length;   // 모든 응답이 다 모였을 때의 수
 const MAX_PCT = 90;                    // 다 풀어도 100%엔 닿지 않는다 (연출)
 const DROP_PCT = 70;                   // 순사 방해 시 떨어지는 지점
-const DROP_MIN = 75;                   // 이 아래에서는 방해 클릭이 발동하지 않는다
 
 let phase = "lobby";     // lobby | play | end
 let qi = 0;              // 내 폰의 현재 문제
@@ -340,6 +339,7 @@ let answered = 0;        // 전체 응답 수(나 + 시뮬레이션)
 let timers = [];
 let sabotaged = false;   // 방해 연출은 1회만
 let sabotageAt = 0;      // 방해가 걸린 시점의 실제 복원율
+let dropTo = DROP_PCT;   // 방해로 떨어질 지점(보통 70%, 이미 그보다 낮으면 더 아래로)
 
 const $ = id => document.getElementById(id);
 const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
@@ -382,14 +382,15 @@ function drawQR() {
 
 /* ── 게이지 ────────────────────────────────────────────────
    실제 복원율은 (모인 응답 / 전체 예상 응답) × 90%.
-   방해를 당하면 그 지점이 70%로 눌리고, 이후 남은 응답이
-   70% → 90% 구간을 다시 채우도록 구간을 다시 매핑한다.
+   방해를 당하면 그 지점이 dropTo(보통 70%)로 눌리고, 이후 남은 응답이
+   dropTo → 90% 구간을 다시 채우도록 구간을 다시 매핑한다.
    덕분에 방해가 있든 없든 마지막은 항상 90%로 끝난다. */
 const realPct = () => answered / EXPECTED * MAX_PCT;
 function shownPct() {
   const p = realPct();
   if (!sabotaged) return p;
-  return DROP_PCT + (p - sabotageAt) * (MAX_PCT - DROP_PCT) / (MAX_PCT - sabotageAt);
+  if (sabotageAt >= MAX_PCT) return MAX_PCT;   // 0으로 나누는 것을 막는다
+  return dropTo + (p - sabotageAt) * (MAX_PCT - dropTo) / (MAX_PCT - sabotageAt);
 }
 function paintGauge() {
   const p = shownPct();
@@ -482,6 +483,10 @@ const wrongTextOf = q => {
 
 /* ── 순사 방해: 스크린 클릭 1회 ────────────────────────── */
 function sabotage() {
+  const now = shownPct();
+  // 보통은 70%로 떨어뜨린다. 다만 아직 70%에 못 미친 시점에 눌렀다면
+  // 70%로 "올라가는" 모순이 생기므로, 현재 값의 3/4 지점으로 떨어뜨린다.
+  dropTo = now > DROP_PCT ? DROP_PCT : now * 0.75;
   sabotaged = true;
   sabotageAt = realPct();
   $("gaugeFill").classList.add("drop");
@@ -600,8 +605,7 @@ $("screen").onclick = () => {
   if (phase === "end")   { location.reload(); return; }
   if (phase !== "play") return;
   if (sabotaged) return;                       // 방해 연출은 딱 한 번
-  if (shownPct() < DROP_MIN) return;           // 70%보다 낮을 땐 떨어뜨릴 것이 없다
-  sabotage();
+  sabotage();                                  // 진행자가 원하는 순간 언제든
 };
 document.body.onkeydown = e => {
   if (PHONE_ONLY) return;                        // 관객이 방해 연출을 발동시키면 안 된다
