@@ -6,6 +6,9 @@
 
 node_modules/
 
+# 연출 디자인 원본(배포 불필요한 대용량 바이너리)
+*.pptx
+
 # OS
 Thumbs.db
 desktop.ini

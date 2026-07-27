@@ -181,6 +181,10 @@
   .ph-done .big { font-size: 34px; }
   .ph-warn { font-size: 10px; color: #6a6280; margin-top: 10px; line-height: 1.5; }
 
+  /* ===== 무대 스크린 모드 (/ — 진행자) =====
+     관객은 각자 폰으로 들어오므로 무대에 폰 목업을 띄울 이유가 없다. */
+  body.stage .phone-side { display: none; }
+
   /* ===== 폰 전용 모드 (?p=1 — QR로 들어온 관객) =====
      관객에게는 무대 스크린을 보여주지 않는다. 각자의 폰에 각자의 게이지가
      따로 뜨면 무대 화면과 숫자가 서로 다르게 놀기 때문이다. */
@@ -237,7 +241,7 @@
       <p>일본 순사들이 경상도 말모이 원고를 불태웠습니다.<br>미래의 동포 여러분, QR을 찍고 경상도 방언을 채워 주십시오!</p>
       <div class="qr-box" id="qrBox"></div>
       <div class="qr-url" id="qrUrl"></div>
-      <p style="font-size:13px">관객이 접속하면 게이지가 차오릅니다 · <b style="color:var(--gold)">폰에서 시작</b>하면 작전 개시</p>
+      <p style="font-size:13px">관객이 QR로 접속합니다 · <b style="color:var(--gold)">화면을 클릭</b>하면 작전 개시</p>
     </div>
 
     <!-- 복원율 게이지 무대 -->
@@ -255,7 +259,7 @@
       <div class="gauge-legend"><span>0%</span><span id="gaugeMsg">관객의 응답을 기다리는 중…</span><span>100%</span></div>
     </div>
 
-    <div class="hint" id="hint">관객 접속 중… 폰에서 「작전 시작」을 누르세요</div>
+    <div class="hint" id="hint">관객 접속 중… 화면을 클릭하면 작전 개시</div>
     <div class="verdict" id="verdict"></div>
   </div>
 
@@ -2617,7 +2621,7 @@ const QUESTIONS = [
     answerText: "문때라", wrongPool: ["문질라", "삐대라", "닦아라"] },
 ];
 
-const TOTAL = 50;                      // 관객 수(나 1명 + 시뮬레이션 49명)
+const TOTAL = 50;                      // 무대에서 시뮬레이션할 관객 수
 const EXPECTED = TOTAL * QUESTIONS.length;   // 모든 응답이 다 모였을 때의 수
 const MAX_PCT = 90;                    // 다 풀어도 100%엔 닿지 않는다 (연출)
 const DROP_PCT = 70;                   // 순사 방해 시 떨어지는 지점
@@ -2718,6 +2722,7 @@ function startLobby() {
     renderPhoneLobby();
     return;
   }
+  document.body.classList.add("stage"); // 무대: 폰 목업을 숨긴다
   drawQR();
   const tick = () => {
     if (joined >= TOTAL) return;
@@ -2728,10 +2733,9 @@ function startLobby() {
     later(tick, 60 + Math.random() * 90);
   };
   later(tick, 400);
-  renderPhoneLobby();
 }
 
-/* ── 작전 개시 (폰에서 시작) ───────────────────────────── */
+/* ── 작전 개시 (무대는 화면 클릭, 관객 폰은 시작 버튼) ──── */
 function startPlay() {
   clearTimers();
   phase = "play";
@@ -2739,17 +2743,19 @@ function startPlay() {
   $("lobby").style.display = "none";
   $("stage").style.display = "flex";
   $("counter").textContent = "작전 진행 중";
-  $("hint").textContent = "폰에서 문제를 풀면 게이지가 차오릅니다";
   paintGauge();
-  if (!PHONE_ONLY) scheduleCrowd();    // 관객 폰에서 가상 관객을 또 돌릴 이유가 없다
-  renderPhoneQuestion();
+  if (PHONE_ONLY) { renderPhoneQuestion(); return; }   // 관객 폰: 내 문제만 푼다
+  $("hint").textContent = "관객 응답 수집 중… 화면을 클릭하면 순사 급습";
+  scheduleCrowd();
 }
 
-/* ── 49명은 각자 다른 속도로 8문제를 푼다 ─────────────────
+/* ── 관객 50명은 각자 다른 속도로 8문제를 푼다 ────────────
    동시에 같은 문제를 푸는 게 아니라, 접속 시점도 푸는 속도도
-   제각각이므로 참여자마다 독립적인 타임라인을 깔아 준다. */
+   제각각이므로 참여자마다 독립적인 타임라인을 깔아 준다.
+   50명 전원을 여기서 돌려야 응답이 EXPECTED(400)까지 차서
+   무대가 스스로 90% 엔딩에 도달한다. */
 function scheduleCrowd() {
-  for (let p = 0; p < TOTAL - 1; p++) {
+  for (let p = 0; p < TOTAL; p++) {
     let t = 300 + Math.random() * 2500;             // 문제를 읽기 시작하는 시점
     for (let k = 0; k < QUESTIONS.length; k++) {
       t += 700 + Math.random() * 2600;              // 한 문제당 걸리는 시간
@@ -2877,30 +2883,15 @@ function renderPhoneDone() {
     <div class="ph-done">
       <div class="big">✍️</div>
       ${QUESTIONS.length}문제 모두 응답했습니다.<br>
-      <span style="font-size:11px;color:#5d566f">${PHONE_ONLY
-        ? "무대 화면을 봐 주세요.<br>원고가 채워지고 있습니다…"
-        : "다른 관객들이 아직 원고를<br>채우고 있습니다…"}</span>
+      <span style="font-size:11px;color:#5d566f">무대 화면을 봐 주세요.<br>원고가 채워지고 있습니다…</span>
     </div>`;
-  if (PHONE_ONLY) return;              // 관객 폰에는 무대 게이지가 없다
-  $("gaugeMsg").textContent = "남은 관객의 응답을 모으는 중…";
-  hurryCrowd();
 }
 
-/* 내가 다 풀고 나면 남은 시뮬레이션 응답을 몰아서 끝낸다 */
-function hurryCrowd() {
-  clearTimers();
-  const left = EXPECTED - answered;
-  for (let n = 0; n < left; n++)
-    later(() => {
-      const q = QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];
-      const hit = Math.random() < 0.62;
-      addAnswer(hit ? correctTextOf(q) : wrongTextOf(q), hit);
-    }, 40 + n * (2600 / Math.max(left, 1)));
-}
-
-/* ── 스크린 클릭 = 순사 방해(1회) / 종료 후엔 리셋 ─────── */
+/* ── 무대 스크린 클릭 = 시작 → 순사 방해(1회) → 리셋 ──── */
 $("screen").onclick = () => {
-  if (phase === "end") { location.reload(); return; }
+  if (PHONE_ONLY) return;
+  if (phase === "lobby") { startPlay(); return; }
+  if (phase === "end")   { location.reload(); return; }
   if (phase !== "play") return;
   if (sabotaged) return;                       // 방해 연출은 딱 한 번
   if (shownPct() < DROP_MIN) return;           // 70%보다 낮을 땐 떨어뜨릴 것이 없다
