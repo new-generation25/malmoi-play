@@ -66,27 +66,25 @@ create policy "anon select answers" on answers
 
 ---
 
-## 3단계 — 접속 정보를 코드에 넣기
+## 3단계 — 접속 정보를 코드에 넣기 (이미 완료됨)
 
-**Project Settings → API** 에서 두 값을 복사한다.
-
-| 항목 | 위치 | 예시 |
-| --- | --- | --- |
-| Project URL | API Settings 상단 | `https://abcdefgh.supabase.co` |
-| anon public key | Project API keys → `anon` `public` | `eyJhbGci...` (긴 문자열) |
-
-`index.html` 상단의 두 줄을 채운다.
+이 저장소에는 아래 값이 이미 들어가 있다(`index.html` 상단).
 
 ```js
-const SUPABASE_URL = "https://abcdefgh.supabase.co";
-const SUPABASE_KEY = "eyJhbGci...";
+const SUPABASE_URL = "https://mxsxkktgsmaumeugripe.supabase.co";
+const SUPABASE_KEY = "sb_publishable_...";
 ```
 
-> **anon key는 비밀이 아니다.** 브라우저에 노출되도록 설계된 공개용 키이며,
-> 실제 권한은 위에서 설정한 RLS 정책이 통제한다. `service_role` 키는
-> 절대 넣으면 안 된다(그 키는 모든 보안 정책을 우회한다).
+**Project Settings → API Keys** 에서 확인·교체할 수 있다.
+새 프로젝트로 바꿀 때는 `Publishable key`(구 `anon` key)를 쓴다.
+
+> **publishable key는 비밀이 아니다.** 브라우저에 노출되도록 설계된 공개용 키이며,
+> 실제 권한은 2단계의 RLS 정책이 통제한다. 그래서 공개 저장소에 그대로 커밋한다.
+> 반대로 `secret`(구 `service_role`) 키는 **절대** 넣으면 안 된다 — 그 키는
+> 모든 보안 정책을 우회한다.
 
 저장 후 배포하면 무대 하단 진행자 바에 **«집계 연결됨»** 이 초록색으로 뜬다.
+2단계 SQL을 아직 실행하지 않았다면 **«집계 끊김 N회»** 가 빨간색으로 뜬다.
 
 ---
 
