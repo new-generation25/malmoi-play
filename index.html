@@ -189,6 +189,20 @@
      관객은 각자 폰으로 들어오므로 무대에 폰 목업을 띄울 이유가 없다. */
   body.stage .phone-side { display: none; }
 
+  /* 진행자 조작 바 — 프로젝션 밖(화면 맨 아래)에 두고 H로 숨긴다 */
+  #opbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    display: none; gap: 18px; align-items: center; flex-wrap: wrap;
+    background: rgba(0,0,0,.88); border-top: 1px solid #2c2c31;
+    color: #c9c9d1; font-size: 13px; padding: 7px 14px; line-height: 1.6;
+  }
+  body.stage #opbar { display: flex; }
+  #opbar.off { display: none; }
+  #opbar b { color: var(--gold); }
+  #opbar b.ok { color: var(--green); }
+  #opbar b.warn { color: var(--red); }
+  #opbar .k { color: #6e6e77; margin-left: auto; }
+
   /* ===== 폰 전용 모드 (?p=1 — QR로 들어온 관객) =====
      관객에게는 무대 스크린을 보여주지 않는다. 각자의 폰에 각자의 게이지가
      따로 뜨면 무대 화면과 숫자가 서로 다르게 놀기 때문이다. */
@@ -268,6 +282,9 @@
     <div class="verdict" id="verdict"></div>
   </div>
 
+  <!-- 진행자 조작 바 (무대 모드에서만. 관객석에서 안 보이게 화면 맨 아래) -->
+  <div id="opbar"></div>
+
   <!-- 관객 폰 -->
   <div class="phone-side">
     <div class="cap">관객 스마트폰 (QR 접속 화면)</div>
@@ -291,6 +308,34 @@ const BASE_URL = "" ||
    각자의 게이지가 따로 놀아 무대 화면과 어긋나기 때문이다. */
 const JOIN_URL = BASE_URL + "?p=1";
 const PHONE_ONLY = new URLSearchParams(location.search).get("p") === "1";
+
+/* ── Supabase 접속 정보 ────────────────────────────────────
+   여기 두 줄만 채우면 실시간 집계가 켜진다. 설정법은 SETUP.md 참고.
+   anon key는 브라우저에 노출되는 것이 정상인 «공개용» 키다.
+   비워 두면 서버 없이 도는 시뮬레이션으로 대체되고, 무대에
+   «시뮬레이션» 배지가 떠서 실집계와 헷갈리지 않게 한다. */
+const SUPABASE_URL = "";
+const SUPABASE_KEY = "";
+const SESSION = new URLSearchParams(location.search).get("s") || "live";  // 공연 회차 구분
+const LIVE = !!(SUPABASE_URL && SUPABASE_KEY);
+
+/* ── Supabase REST 호출 ───────────────────────────────────
+   실시간 구독(WebSocket) 대신 1초 폴링을 쓴다. 공연은 단 한 번뿐이라
+   이벤트 유실 시 게이지가 영구히 틀어지는 것보다, 매번 전체를 다시 읽어
+   스스로 복구되는 편이 안전하다. 무대 게이지에 1초 지연은 보이지 않는다. */
+async function db(path, opts = {}) {
+  const res = await fetch(SUPABASE_URL + "/rest/v1/" + path, {
+    ...opts,
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: "Bearer " + SUPABASE_KEY,
+      "Content-Type": "application/json",
+      ...(opts.headers || {}),
+    },
+  });
+  if (!res.ok) throw new Error(path + " → " + res.status + " " + (await res.text()).slice(0, 120));
+  return res;
+}
 
 /* ── 대본 2막 씬2 "경상도 말모이 작전" 문제 ─────────────── */
 const QUESTIONS = [
@@ -327,19 +372,24 @@ const QUESTIONS = [
     answerText: "문때라", wrongPool: ["문질라", "삐대라", "닦아라"] },
 ];
 
-const TOTAL = 50;                      // 무대에서 시뮬레이션할 관객 수
-const EXPECTED = TOTAL * QUESTIONS.length;   // 모든 응답이 다 모였을 때의 수
-const MAX_PCT = 90;                    // 다 풀어도 100%엔 닿지 않는다 (연출)
+const TOTAL = 50;                      // 시뮬레이션(미설정 시)용 가상 관객 수
+const MAX_PCT = 90;                    // 실집계가 자연히 수렴하는 상한 (연출)
 const DROP_PCT = 70;                   // 순사 방해 시 떨어지는 지점
+const HALF = 50;                       // 응답 이만큼 모이면 상한의 절반에 도달
 
 let phase = "lobby";     // lobby | play | end
 let qi = 0;              // 내 폰의 현재 문제
-let joined = 0;
-let answered = 0;        // 전체 응답 수(나 + 시뮬레이션)
+let joined = 0;          // 접속 관객 수(실집계) — 시뮬레이션 시 가상 인원
+let answered = 0;        // 전체 응답 수(실집계)
 let timers = [];
-let sabotaged = false;   // 방해 연출은 1회만
-let sabotageAt = 0;      // 방해가 걸린 시점의 실제 복원율
-let dropTo = DROP_PCT;   // 방해로 떨어질 지점(보통 70%, 이미 그보다 낮으면 더 아래로)
+let poller = null;       // 실집계 폴링 타이머
+let lastId = 0;          // 마지막으로 읽어들인 응답 id (증분 조회용)
+
+/* 진행자 개입 상태.
+   anchor : 그 지점에서 다시 자연 상승을 시작하도록 잡아 둔 기준점(70% 급습용)
+   pinned : 90/100처럼 값에 고정해 버리는 경우(엔딩 연출용) */
+let anchor = null;
+let pinned = null;
 
 const $ = id => document.getElementById(id);
 const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
@@ -381,16 +431,21 @@ function drawQR() {
 }
 
 /* ── 게이지 ────────────────────────────────────────────────
-   실제 복원율은 (모인 응답 / 전체 예상 응답) × 90%.
-   방해를 당하면 그 지점이 dropTo(보통 70%)로 눌리고, 이후 남은 응답이
-   dropTo → 90% 구간을 다시 채우도록 구간을 다시 매핑한다.
-   덕분에 방해가 있든 없든 마지막은 항상 90%로 끝난다. */
-const realPct = () => answered / EXPECTED * MAX_PCT;
+   관객 수를 미리 알 수 없으므로 «목표 대비 비율»을 쓰지 않는다.
+   대신 응답이 쌓일수록 상승폭이 줄며 90%에 수렴하는 곡선을 쓴다.
+   응답 HALF건에서 절반(45%), 그 뒤로는 천천히 90%에 다가간다.
+   덕분에 관객이 30명이든 300명이든 게이지가 거꾸로 가거나 멈추지 않는다.
+
+   여기에 진행자가 70/90/100으로 개입할 수 있다.
+   · 70(급습) → 그 지점을 새 바닥으로 삼아 다시 자연 상승을 이어간다
+   · 90/100   → 그 값에 고정한다(엔딩 연출) */
+const rawPct = () => MAX_PCT * answered / (answered + HALF);
 function shownPct() {
-  const p = realPct();
-  if (!sabotaged) return p;
-  if (sabotageAt >= MAX_PCT) return MAX_PCT;   // 0으로 나누는 것을 막는다
-  return dropTo + (p - sabotageAt) * (MAX_PCT - dropTo) / (MAX_PCT - sabotageAt);
+  if (pinned !== null) return pinned;
+  const p = rawPct();
+  if (!anchor) return p;
+  if (anchor.at >= MAX_PCT) return anchor.to;     // 0으로 나누는 것을 막는다
+  return anchor.to + (p - anchor.at) * (MAX_PCT - anchor.to) / (MAX_PCT - anchor.at);
 }
 function paintGauge() {
   const p = shownPct();
@@ -405,7 +460,6 @@ function addAnswer(text, hit) {
   paintGauge();
   popBubble(text, hit);
   if (Date.now() - lastBeep > 45) { lastBeep = Date.now(); beep(520 + Math.random() * 260, 0.03, 0.03); }
-  if (answered >= EXPECTED && phase === "play") finish();
 }
 
 /* ── 말풍선 뿅 ─────────────────────────────────────────── */
@@ -426,25 +480,36 @@ function popBubble(text, hit) {
 function startLobby() {
   if (PHONE_ONLY) {                    // 관객 폰: 무대 연출 없이 곧장 폰 화면만
     document.body.classList.add("phone-only");
+    joinLive();                        // 접속했음을 서버에 알린다
     renderPhoneLobby();
     return;
   }
   document.body.classList.add("stage"); // 무대: 폰 목업을 숨긴다
   drawQR();
+  showOpBar();
+  if (LIVE) { poll(); startPolling(); return; }   // 실집계: 접속자가 들어오는 대로 표시
+  simulateJoin();                                 // 미설정: 가상 관객이 접속하는 척
+}
+
+/* 미설정(시뮬레이션) 시 로비에서 관객이 하나씩 붙는 연출 */
+function simulateJoin() {
   const tick = () => {
     if (joined >= TOTAL) return;
     joined++;
-    $("joinNum").textContent = joined;
-    $("joinFill").style.width = (joined / TOTAL * 100) + "%";
+    paintJoin();
     beep(300 + joined * 8, 0.03, 0.02);
     later(tick, 60 + Math.random() * 90);
   };
   later(tick, 400);
 }
+function paintJoin() {
+  $("joinNum").textContent = joined;
+  // 실집계에는 목표 인원이 없으므로 50명을 눈금 삼아 채운다(넘으면 가득)
+  $("joinFill").style.width = Math.min(joined / TOTAL * 100, 100) + "%";
+}
 
 /* ── 작전 개시 (무대는 화면 클릭, 관객 폰은 시작 버튼) ──── */
 function startPlay() {
-  clearTimers();
   phase = "play";
   qi = 0;
   $("lobby").style.display = "none";
@@ -452,15 +517,58 @@ function startPlay() {
   $("counter").textContent = "작전 진행 중";
   paintGauge();
   if (PHONE_ONLY) { renderPhoneQuestion(); return; }   // 관객 폰: 내 문제만 푼다
-  $("hint").textContent = "관객 응답 수집 중… 화면을 클릭하면 순사 급습";
-  scheduleCrowd();
+  $("gaugeMsg").textContent = LIVE ? "관객의 응답을 모으는 중…" : "시뮬레이션 진행 중…";
+  showOpBar();
+  if (LIVE) return;                                   // 실집계는 이미 폴링이 돌고 있다
+  clearTimers();
+  scheduleCrowd();                                    // 미설정일 때만 가상 관객
 }
 
-/* ── 관객 50명은 각자 다른 속도로 8문제를 푼다 ────────────
-   동시에 같은 문제를 푸는 게 아니라, 접속 시점도 푸는 속도도
-   제각각이므로 참여자마다 독립적인 타임라인을 깔아 준다.
-   50명 전원을 여기서 돌려야 응답이 EXPECTED(400)까지 차서
-   무대가 스스로 90% 엔딩에 도달한다. */
+/* ── 실집계 폴링 ──────────────────────────────────────────
+   1초마다 (1) 새 응답을 증분 조회하고 (2) 접속 인원을 센다.
+   증분 조회라 트래픽이 작고, 총계를 매번 다시 읽으므로
+   한 번 실패해도 다음 폴링에서 스스로 복구된다. */
+function startPolling() {
+  if (poller) clearInterval(poller);
+  poller = setInterval(poll, 1000);
+}
+let polling = false;
+async function poll() {
+  if (polling) return;                 // 응답이 느릴 때 요청이 겹치지 않게
+  polling = true;
+  try {
+    const r = await db(`answers?session=eq.${SESSION}&id=gt.${lastId}` +
+                       `&select=id,text,hit&order=id.asc&limit=200`);
+    const rows = await r.json();
+    for (const row of rows) {
+      lastId = Math.max(lastId, row.id);
+      if (phase === "play") addAnswer(row.text || "…", !!row.hit);
+      else { answered++; $("answeredNum").textContent = "응답 " + answered; }
+    }
+    if (phase === "play" && !rows.length) paintGauge();
+
+    const p = await db(`participants?session=eq.${SESSION}&select=device`,
+                       { headers: { Prefer: "count=exact", Range: "0-0" } });
+    const cr = p.headers.get("content-range");       // 예: "0-0/37"
+    const n = cr && +cr.split("/")[1];
+    if (Number.isFinite(n)) { joined = n; paintJoin(); }
+    netOK(true);
+  } catch (e) {
+    netOK(false, e.message);
+  } finally {
+    polling = false;
+  }
+}
+/* 네트워크 상태를 진행자 바에 표시한다. 공연 중 조용히 끊기는 것이 가장 위험하다. */
+let netFails = 0;
+function netOK(ok, msg) {
+  if (ok) { netFails = 0; } else { netFails++; console.warn("집계 폴링 실패:", msg); }
+  showOpBar();
+}
+
+/* ── 시뮬레이션(Supabase 미설정 시에만) ───────────────────
+   가상 관객 50명이 각자 다른 속도로 8문제를 푼다. 실집계가 켜지면
+   이 함수는 호출되지 않는다. 리허설·데모용 대체 동작이다. */
 function scheduleCrowd() {
   for (let p = 0; p < TOTAL; p++) {
     let t = 300 + Math.random() * 2500;             // 문제를 읽기 시작하는 시점
@@ -486,11 +594,8 @@ function sabotage() {
   const now = shownPct();
   // 보통은 70%로 떨어뜨린다. 다만 아직 70%에 못 미친 시점에 눌렀다면
   // 70%로 "올라가는" 모순이 생기므로, 현재 값의 3/4 지점으로 떨어뜨린다.
-  dropTo = now > DROP_PCT ? DROP_PCT : now * 0.75;
-  sabotaged = true;
-  sabotageAt = realPct();
+  dropToPct(now > DROP_PCT ? DROP_PCT : now * 0.75);
   $("gaugeFill").classList.add("drop");
-  paintGauge();
   $("screen").classList.add("shake");
   setTimeout(() => $("screen").classList.remove("shake"), 480);
   setTimeout(() => $("gaugeFill").classList.remove("drop"), 1600);
@@ -502,10 +607,54 @@ function sabotage() {
   setTimeout(() => v.classList.remove("show"), 1600);
 }
 
+/* ── 진행자 개입 ──────────────────────────────────────────
+   실집계가 게이지를 몰지만, 연출상 필요한 순간에는 진행자가
+   값을 직접 잡는다. 70은 «바닥을 새로 깔고 다시 오르게», 90/100은 «고정».  */
+function dropToPct(to) {          // 70 — 여기서부터 실집계로 다시 차오른다
+  anchor = { to, at: rawPct() };
+  pinned = null;
+  paintGauge();
+  showOpBar();
+}
+function pinPct(to) {             // 90 / 100 — 그 값에 못박는다
+  pinned = to;
+  paintGauge();
+  $("gaugeMsg").textContent = to >= 100
+    ? "말모이 원고가 완전히 복원되었습니다!"
+    : "원고가 거의 복원되었습니다…";
+  if (to >= 100) fanfare();
+  showOpBar();
+}
+function autoPct() {              // 개입 해제 — 실집계 값으로 되돌린다
+  pinned = null; anchor = null;
+  paintGauge();
+  $("gaugeMsg").textContent = LIVE ? "관객의 응답을 모으는 중…" : "시뮬레이션 진행 중…";
+  showOpBar();
+}
+
+/* ── 진행자 조작 바 (관객석에서 안 보이도록 화면 맨 아래) ── */
+function showOpBar() {
+  if (PHONE_ONLY) return;
+  const bar = $("opbar");
+  if (!bar) return;
+  const mode = pinned !== null ? `고정 ${pinned}%`
+             : anchor ? `${Math.round(anchor.to)}%에서 재상승`
+             : "실집계 그대로";
+  const net = !LIVE ? '<b class="warn">시뮬레이션 (Supabase 미설정)</b>'
+            : netFails === 0 ? '<b class="ok">집계 연결됨</b>'
+            : `<b class="warn">집계 끊김 ${netFails}회</b>`;
+  bar.innerHTML =
+    `<span>${net}</span>` +
+    `<span>접속 <b>${joined}</b> · 응답 <b>${answered}</b> · 게이지 <b>${Math.round(shownPct())}%</b></span>` +
+    `<span>모드: ${mode}</span>` +
+    `<span class="k">클릭 진행 · <b>7</b> 급습(70) · <b>9</b> 90% · <b>0</b> 100% · <b>A</b> 자동 · <b>H</b> 숨김</span>`;
+}
+
 /* ── 종료 ──────────────────────────────────────────────── */
 function finish() {
   phase = "end";
   clearTimers();
+  if (poller) { clearInterval(poller); poller = null; }   // 폴링 정지
   const p = Math.round(shownPct());
   $("stage").style.display = "none";
   $("lobby").style.display = "flex";
@@ -522,6 +671,38 @@ function finish() {
     <p style="font-size:12px;color:#6a6280">클릭하면 처음부터 다시</p>`;
   fanfare();
   $("phone").innerHTML = `<div class="ph-done"><div class="big">🏮</div>작전 완료!<br>고맙습니데이~</div>`;
+}
+
+/* ── 관객 폰 → 서버 전송 ──────────────────────────────────
+   폰에는 게이지가 없다. 답을 서버로 보내고, 무대가 그것을 읽어 간다.
+   전송이 실패해도 관객의 퀴즈 진행은 막지 않는다(공연이 멈추면 안 된다). */
+const DEVICE = (() => {
+  try {
+    let d = localStorage.getItem("malmoi-device");
+    if (!d) { d = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem("malmoi-device", d); }
+    return d;
+  } catch (e) { return Math.random().toString(36).slice(2); }
+})();
+
+async function joinLive() {
+  if (!LIVE) return;
+  try {
+    await db("participants", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates" },   // 새로고침해도 중복 집계 안 됨
+      body: JSON.stringify({ device: DEVICE, session: SESSION }),
+    });
+  } catch (e) { console.warn("접속 등록 실패:", e.message); }
+}
+
+async function sendAnswer(text, hit) {
+  if (!LIVE) { addAnswer(text, hit); return; }   // 미설정이면 로컬 집계로 대체
+  try {
+    await db("answers", {
+      method: "POST",
+      body: JSON.stringify({ device: DEVICE, session: SESSION, qi, text, hit }),
+    });
+  } catch (e) { console.warn("응답 전송 실패:", e.message); }
 }
 
 /* ── 관객 폰 화면 ──────────────────────────────────────── */
@@ -561,7 +742,7 @@ function renderPhoneQuestion() {
       const v = $("phInput").value.trim().replace(/[.!?]/g, "");
       if (!v) return;
       const hit = v === q.answerText.replace(/[.!?]/g, "");
-      addAnswer(v, hit);
+      sendAnswer(v, hit);
       $("phInput").disabled = true;
       $("phSend").disabled = true;
       $("phSend").textContent = hit ? "정답! ✓" : `정답은 「${q.answerText}」`;
@@ -581,7 +762,7 @@ function renderPhoneQuestion() {
         const i = +el.dataset.i, hit = i === q.answer;
         el.classList.add(hit ? "ok" : "no");
         if (!hit) $("phone").querySelector(`.ph-opt[data-i="${q.answer}"]`).classList.add("ok");
-        addAnswer(q.options[i], hit);
+        sendAnswer(q.options[i], hit);
         setTimeout(nextQuestion, 750);
       };
     });
@@ -598,19 +779,26 @@ function renderPhoneDone() {
     </div>`;
 }
 
-/* ── 무대 스크린 클릭 = 시작 → 순사 방해(1회) → 리셋 ──── */
+/* ── 무대 스크린 클릭 = 시작 → 순사 급습 → 종료 → 리셋 ───
+   클릭 한 번에 한 단계씩. 진행자가 리듬을 통제할 수 있어야 하므로
+   조건으로 막지 않는다. 정밀 조작은 숫자키(7/9/0/A)로 한다. */
 $("screen").onclick = () => {
   if (PHONE_ONLY) return;
-  if (phase === "lobby") { startPlay(); return; }
-  if (phase === "end")   { location.reload(); return; }
-  if (phase !== "play") return;
-  if (sabotaged) return;                       // 방해 연출은 딱 한 번
-  sabotage();                                  // 진행자가 원하는 순간 언제든
+  if (phase === "lobby")      { startPlay(); return; }
+  if (phase === "end")        { location.reload(); return; }
+  if (!anchor && pinned === null) { sabotage(); return; }   // 첫 클릭 = 순사 급습
+  finish();                                                 // 그 다음 클릭 = 작전 완료
 };
 document.body.onkeydown = e => {
-  if (PHONE_ONLY) return;                        // 관객이 방해 연출을 발동시키면 안 된다
+  if (PHONE_ONLY) return;                        // 관객이 연출을 건드리면 안 된다
   if (e.target.tagName === "INPUT") return;      // 주관식 입력의 Enter까지 삼키면 안 된다
+  const k = e.key;
   if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); $("screen").click(); }
+  else if (k === "7") { if (phase === "play") sabotage(); }      // 급습 → 70%
+  else if (k === "9") { if (phase === "play") pinPct(90); }      // 90% 고정
+  else if (k === "0") { if (phase === "play") pinPct(100); }     // 100% 고정
+  else if (k === "a" || k === "A") { if (phase === "play") autoPct(); }  // 개입 해제
+  else if (k === "h" || k === "H") { $("opbar").classList.toggle("off"); }
 };
 
 startLobby();
