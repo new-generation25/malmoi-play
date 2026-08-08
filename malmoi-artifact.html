@@ -2684,6 +2684,10 @@ let lastId = 0;          // 마지막으로 읽어들인 응답 id (증분 조�
    pinned : 90/100처럼 값에 고정해 버리는 경우(엔딩 연출용) */
 let anchor = null;
 let pinned = null;
+/* 클릭 진행 단계. 게이지 상태에서 추론하면 7/9/0/A를 누른 뒤 클릭이
+   엉뚱한 단계로 튄다(A 이후 클릭이 종료 대신 급습으로 가는 문제).
+   진행자가 클릭 결과를 늘 예측할 수 있도록 단계를 따로 센다. */
+let clickStep = 0;       // 0 시작전 · 1 진행중(다음=급습) · 2 급습후(다음=종료)
 
 const $ = id => document.getElementById(id);
 const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
@@ -2941,7 +2945,7 @@ function showOpBar() {
     `<span>${net}</span>` +
     `<span>접속 <b>${joined}</b> · 응답 <b>${answered}</b> · 게이지 <b>${Math.round(shownPct())}%</b></span>` +
     `<span>모드: ${mode}</span>` +
-    `<span class="k">클릭 진행 · <b>7</b> 급습(70) · <b>9</b> 90% · <b>0</b> 100% · <b>A</b> 자동 · <b>H</b> 숨김</span>`;
+    `<span class="k">클릭 진행 · <b>7</b> 급습(70) · <b>9</b> 90% · <b>0</b> 100% · <b>A</b> 자동 · <b>E</b> 종료 · <b>H</b> 숨김</span>`;
 }
 
 /* ── 종료 ──────────────────────────────────────────────── */
@@ -3078,20 +3082,21 @@ function renderPhoneDone() {
    조건으로 막지 않는다. 정밀 조작은 숫자키(7/9/0/A)로 한다. */
 $("screen").onclick = () => {
   if (PHONE_ONLY) return;
-  if (phase === "lobby")      { startPlay(); return; }
-  if (phase === "end")        { location.reload(); return; }
-  if (!anchor && pinned === null) { sabotage(); return; }   // 첫 클릭 = 순사 급습
-  finish();                                                 // 그 다음 클릭 = 작전 완료
+  if (phase === "end")   { location.reload(); return; }
+  if (phase === "lobby") { clickStep = 1; startPlay(); return; }
+  if (clickStep <= 1)    { clickStep = 2; sabotage(); return; }   // 다음 클릭 = 순사 급습
+  finish();                                                       // 그 다음 클릭 = 작전 완료
 };
 document.body.onkeydown = e => {
   if (PHONE_ONLY) return;                        // 관객이 연출을 건드리면 안 된다
   if (e.target.tagName === "INPUT") return;      // 주관식 입력의 Enter까지 삼키면 안 된다
   const k = e.key;
   if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); $("screen").click(); }
-  else if (k === "7") { if (phase === "play") sabotage(); }      // 급습 → 70%
+  else if (k === "7") { if (phase === "play") { clickStep = 2; sabotage(); } }  // 급습 → 70%
   else if (k === "9") { if (phase === "play") pinPct(90); }      // 90% 고정
   else if (k === "0") { if (phase === "play") pinPct(100); }     // 100% 고정
   else if (k === "a" || k === "A") { if (phase === "play") autoPct(); }  // 개입 해제
+  else if (k === "e" || k === "E") { if (phase === "play") finish(); }   // 즉시 종료
   else if (k === "h" || k === "H") { $("opbar").classList.toggle("off"); }
 };
 
