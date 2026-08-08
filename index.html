@@ -203,6 +203,19 @@
   #opbar b.warn { color: var(--red); }
   #opbar .k { color: #6e6e77; margin-left: auto; }
 
+  /* ===== Q-Studio 임베드 모드 (출력창 iframe · 1920×1080) =====
+     프로젝터에는 가장자리까지 꽉 차야 한다. 데모용 카드 테두리·바깥 여백·
+     «STAGE SCREEN» 라벨은 무대에 나갈 것이 아니다.
+     진행자 바도 여기서는 감춘다 — 출력 화면에는 콘텐츠 말고 아무것도 그리지 않는다. */
+  body.embed { padding: 0; height: 100vh; min-height: 100vh; }
+  body.embed .wrap { max-width: none; height: 100%; gap: 0; }
+  body.embed .screen {
+    border: 0; border-radius: 0; box-shadow: none;
+    min-height: 0; height: 100%; padding: 3.2vh 4vw; cursor: default;
+  }
+  body.embed .screen-label { display: none; }
+  body.embed #opbar { display: none; }
+
   /* ===== 폰 전용 모드 (?p=1 — QR로 들어온 관객) =====
      관객에게는 무대 스크린을 보여주지 않는다. 각자의 폰에 각자의 게이지가
      따로 뜨면 무대 화면과 숫자가 서로 다르게 놀기 때문이다. */
@@ -263,6 +276,10 @@
       <p style="font-size:13px">관객이 QR로 접속합니다 · <b style="color:var(--gold)">화면을 클릭</b>하면 작전 개시</p>
     </div>
 
+    <!-- 작전 완료. 로비를 덮어쓰지 않고 따로 둔다 — Q-Studio에서 ←로 되감으면
+         조종창이 cueoutStep을 «절대 위치»로 부르므로 로비가 되살아나야 한다. -->
+    <div class="lobby" id="done" style="display:none"></div>
+
     <!-- 복원율 게이지 무대 -->
     <div class="stage" id="stage" style="display:none">
       <div class="bubble-field" id="bubbles"></div>
@@ -297,17 +314,33 @@
 <script src="qrcode.js"></script>
 <script>
 /* ── 관객이 접속할 주소 ────────────────────────────────────
-   비워두면 이 페이지를 띄운 주소를 그대로 QR로 만듭니다.
-   따라서 이 화면을 공개 주소로 열면 QR도 그 주소를 가리킵니다.
-   localhost로 열면 QR도 localhost가 되어 관객 폰에서는 열리지 않습니다. */
-const BASE_URL = "" ||
-  (location.href.startsWith("http") ? location.href.split(/[?#]/)[0]
-                                    : "https://malmoi.live/1942");
+   관객 폰이 열게 될 «공개» 주소다. 이 화면이 어디서 열리든 QR은 항상
+   이 주소를 가리켜야 한다 — 예전에는 «지금 이 페이지 주소»를 썼는데,
+   그러면 로컬 서버나 Q-Studio 출력창에서 열었을 때 QR이 localhost를
+   가리켜 관객 폰에서는 아예 열리지 않는다.
+   배포처를 옮기면 이 한 줄만 고친다. */
+const BASE_URL = "https://malmoi-play.vercel.app/";
 
 /* QR은 폰 전용 모드를 가리킨다. 관객 폰에 무대 스크린이 같이 뜨면
    각자의 게이지가 따로 놀아 무대 화면과 어긋나기 때문이다. */
 const JOIN_URL = BASE_URL + "?p=1";
 const PHONE_ONLY = new URLSearchParams(location.search).get("p") === "1";
+
+/* ── Q-Studio 임베드 판정 ──────────────────────────────────
+   Q-Studio는 이 페이지를 출력창(output.html) 안 iframe으로 띄우고,
+   조종창이 window.cueoutStep(i)로 단계를 몰아준다. 출력창에는 포커스가
+   없어 키가 들어오지 않으므로, 임베드일 때는 이 페이지의 클릭·키 조작을
+   전부 끈다. 특히 Space를 가로채면 Q-Studio의 GO(다음 큐)가 먹통이 되어
+   공연 중 큐에 갇힌다.
+
+   ON_STAGE — 조종창의 «라이브 미러»가 같은 페이지를 한 벌 더 돌리기 때문에
+   소리가 두 번 난다. 부모가 output.html인 쪽(=진짜 무대)만 소리를 낸다. */
+const EMBEDDED = window.parent !== window;
+const ON_STAGE = !EMBEDDED || (() => {
+  try { return /output\.html$/i.test(window.parent.location.pathname); }
+  catch (e) { return false; }        // 교차 출처라 알 수 없다 — 조용한 쪽을 택한다
+})();
+if (EMBEDDED) document.body.classList.add("embed");
 
 /* ── Supabase 접속 정보 ────────────────────────────────────
    여기 두 줄만 채우면 실시간 집계가 켜진다. 설정법은 SETUP.md 참고.
@@ -402,6 +435,7 @@ const later = (fn, ms) => timers.push(setTimeout(fn, ms));
 /* ── 극적 효과용 사운드 ─────────────────────────────────── */
 let ac, lastBeep = 0;
 function beep(freq, dur = 0.05, vol = 0.05, type = "triangle") {
+  if (!ON_STAGE) return;      // 조종창 미러에서 겹쳐 울리지 않게 (무대에서만 소리)
   try {
     ac = ac || new (window.AudioContext || window.webkitAudioContext)();
     const o = ac.createOscillator(), g = ac.createGain();
@@ -517,6 +551,7 @@ function startPlay() {
   phase = "play";
   qi = 0;
   $("lobby").style.display = "none";
+  $("done").style.display = "none";
   $("stage").style.display = "flex";
   $("counter").textContent = "작전 진행 중";
   paintGauge();
@@ -639,6 +674,7 @@ function autoPct() {              // 개입 해제 — 실집계 값으로 되�
 /* ── 진행자 조작 바 (관객석에서 안 보이도록 화면 맨 아래) ── */
 function showOpBar() {
   if (PHONE_ONLY) return;
+  if (EMBEDDED) return;      // 출력 화면에는 콘텐츠 말고 아무것도 그리지 않는다 (Q-Studio 원칙)
   const bar = $("opbar");
   if (!bar) return;
   const mode = pinned !== null ? `고정 ${pinned}%`
@@ -661,10 +697,11 @@ function finish() {
   if (poller) { clearInterval(poller); poller = null; }   // 폴링 정지
   const p = Math.round(shownPct());
   $("stage").style.display = "none";
-  $("lobby").style.display = "flex";
+  $("lobby").style.display = "none";
+  $("done").style.display = "flex";
   $("counter").textContent = "";
-  $("hint").textContent = "클릭하면 처음부터 다시";
-  $("lobby").innerHTML = `
+  $("hint").textContent = EMBEDDED ? "" : "클릭하면 처음부터 다시";
+  $("done").innerHTML = `
     <h1>작전 완료</h1>
     <p style="font-size:17px;line-height:2">
       말모이 원고를 <b style="color:var(--gold);font-size:30px">${p}%</b> 되찾았습니다.<br>
@@ -672,7 +709,7 @@ function finish() {
       와우, 여러분은 경상도 토박이시군요!<br><br>
       <span style="font-size:14px;color:#6a6280">— 이어서 「경상도 노래부르기 작전」으로 —</span>
     </p>
-    <p style="font-size:12px;color:#6a6280">클릭하면 처음부터 다시</p>`;
+    ${EMBEDDED ? "" : `<p style="font-size:12px;color:#6a6280">클릭하면 처음부터 다시</p>`}`;
   fanfare();
   $("phone").innerHTML = `<div class="ph-done"><div class="big">🏮</div>작전 완료!<br>고맙습니데이~</div>`;
 }
@@ -785,28 +822,93 @@ function renderPhoneDone() {
 
 /* ── 무대 스크린 클릭 = 시작 → 순사 급습 → 종료 → 리셋 ───
    클릭 한 번에 한 단계씩. 진행자가 리듬을 통제할 수 있어야 하므로
-   조건으로 막지 않는다. 정밀 조작은 숫자키(7/9/0/A)로 한다. */
-$("screen").onclick = () => {
-  if (PHONE_ONLY) return;
-  if (phase === "end")   { location.reload(); return; }
-  if (phase === "lobby") { clickStep = 1; startPlay(); return; }
-  if (clickStep <= 1)    { clickStep = 2; sabotage(); return; }   // 다음 클릭 = 순사 급습
-  finish();                                                       // 그 다음 클릭 = 작전 완료
-};
-document.body.onkeydown = e => {
-  if (PHONE_ONLY) return;                        // 관객이 연출을 건드리면 안 된다
-  if (e.target.tagName === "INPUT") return;      // 주관식 입력의 Enter까지 삼키면 안 된다
-  const k = e.key;
-  if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); $("screen").click(); }
-  else if (k === "7") { if (phase === "play") { clickStep = 2; sabotage(); } }  // 급습 → 70%
-  else if (k === "9") { if (phase === "play") pinPct(90); }      // 90% 고정
-  else if (k === "0") { if (phase === "play") pinPct(100); }     // 100% 고정
-  else if (k === "a" || k === "A") { if (phase === "play") autoPct(); }  // 개입 해제
-  else if (k === "e" || k === "E") { if (phase === "play") finish(); }   // 즉시 종료
-  else if (k === "h" || k === "H") { $("opbar").classList.toggle("off"); }
-};
+   조건으로 막지 않는다. 정밀 조작은 숫자키(7/9/0/A)로 한다.
+
+   ⚠ Q-Studio 임베드에서는 아예 붙이지 않는다. iframe 안의 클릭·키가 살아
+   있으면 조종창이 세는 단계와 화면이 어긋나고(Q-Studio README 수정이력 #33),
+   무엇보다 Space를 삼켜 GO(다음 큐)가 먹통이 된다 — 공연 중 큐에 갇힌다. */
+if (!EMBEDDED) {
+  $("screen").onclick = () => {
+    if (PHONE_ONLY) return;
+    if (phase === "end")   { location.reload(); return; }
+    if (phase === "lobby") { clickStep = 1; startPlay(); return; }
+    if (clickStep <= 1)    { clickStep = 2; sabotage(); return; }   // 다음 클릭 = 순사 급습
+    finish();                                                       // 그 다음 클릭 = 작전 완료
+  };
+  document.body.onkeydown = e => {
+    if (PHONE_ONLY) return;                        // 관객이 연출을 건드리면 안 된다
+    if (e.target.tagName === "INPUT") return;      // 주관식 입력의 Enter까지 삼키면 안 된다
+    const k = e.key;
+    if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); $("screen").click(); }
+    else if (k === "7") { if (phase === "play") { clickStep = 2; sabotage(); } }  // 급습 → 70%
+    else if (k === "9") { if (phase === "play") pinPct(90); }      // 90% 고정
+    else if (k === "0") { if (phase === "play") pinPct(100); }     // 100% 고정
+    else if (k === "a" || k === "A") { if (phase === "play") autoPct(); }  // 개입 해제
+    else if (k === "e" || k === "E") { if (phase === "play") finish(); }   // 즉시 종료
+    else if (k === "h" || k === "H") { $("opbar").classList.toggle("off"); }
+  };
+}
+
+if (EMBEDDED) $("hint").textContent = "";   // «화면을 클릭하면 작전 개시»는 여기선 거짓말이다
 
 startLobby();
+
+/* ══════════════════════ Q-Studio 단계 규약 ══════════════════════
+   window.cueoutSteps   총 단계 수
+   window.cueoutStart() 큐가 화면에 떴을 때
+   window.cueoutStep(i) i번째 단계로 (0부터)
+
+   조종창이 ← → 로 단계를 넘긴다. Space(GO)는 단계를 먹지 않고 언제나
+   다음 큐로 간다 — 스페이스가 큐마다 다른 일을 하면 무대에서 예측할 수 없다.
+
+   그래서 진행자 미세 조작(9 = 90% 고정 · 0 = 100% · A = 개입 해제)은 여기에
+   없다. 그 조작이 필요한 공연이면 이 페이지를 Q-Studio 밖 브라우저 창으로
+   직접 열어야 한다.
+
+   ⚠ 되감기(←)도 같은 cueoutStep을 «절대 위치»로 부른다(app.js의 driveFrame).
+   그래서 어느 단계에서 어느 단계로든 화면을 다시 세울 수 있어야 한다. */
+const STEP_NAMES = ["로비(QR)", "작전 진행", "순사 급습", "작전 완료"];
+let curStep = -1;
+
+/* 0단계(로비) 상태로 되돌린다.
+   ⚠ answered · joined · lastId는 일부러 건드리지 않는다. 실집계는 계속
+   흐르는 값이고, lastId를 그대로 둔 채 answered만 0으로 되돌리면 이미 읽어
+   간 응답을 다시 셀 수 없어 게이지가 0에서 영영 멈춘다. */
+function resetStage() {
+  clearTimers();
+  phase = "lobby"; anchor = null; pinned = null; clickStep = 0;
+  $("done").style.display = "none";
+  $("stage").style.display = "none";
+  $("lobby").style.display = "flex";
+  $("counter").textContent = "";
+  $("gaugeMsg").textContent = "관객의 응답을 기다리는 중…";
+  $("bubbles").innerHTML = "";
+  $("verdict").className = "verdict";
+  $("gaugeFill").classList.remove("drop");
+  paintGauge();
+  drawQR();
+  if (LIVE && !poller) { poll(); startPolling(); }   // finish()가 세운 폴링을 되살린다
+  showOpBar();
+}
+
+function applyStep(i) {
+  i = Math.max(0, Math.min(i | 0, STEP_NAMES.length - 1));
+  if (i === curStep) return;
+  if (i < curStep) { resetStage(); curStep = 0; }    // 되감기 — 0단계부터 다시 세운다
+  while (curStep < i) {
+    switch (++curStep) {
+      case 1: clickStep = 1; startPlay(); break;
+      case 2: clickStep = 2; sabotage();  break;
+      case 3: finish();                   break;
+    }
+  }
+}
+
+if (!PHONE_ONLY) {
+  window.cueoutSteps = STEP_NAMES.length;
+  window.cueoutStart = () => { resetStage(); curStep = 0; };
+  window.cueoutStep  = applyStep;
+}
 </script>
 </body>
 </html>
