@@ -2,6 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<!-- 관객은 참여퀴즈창(?p=1)에 폰으로 들어온다. 이 줄이 없으면 폰이 문서를
+     데스크톱 폭(980px)으로 렌더한 뒤 통째로 축소해서, 글씨를 아무리 키워도
+     작게 보인다. viewport-fit=cover 는 노치 단말에서 화면을 끝까지 쓰기 위한 것. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12101c">
 <title>말모이 작전 — 관객참여 퀴즈 데모</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -178,6 +183,12 @@
     padding: 18px 14px; display: flex; flex-direction: column;
     box-shadow: 0 20px 50px rgba(0,0,0,.6);
   }
+  /* 상단(진행표시) · 본문(스크롤) · 하단(버튼) 3단.
+     버튼을 본문에 두면 폰에서 키보드가 올라올 때 화면 밖으로 밀린다. */
+  .ph-head { flex: 0 0 auto; }
+  .ph-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+  .ph-foot { flex: 0 0 auto; }
+
   .ph-top { font-size: 10px; color: #6a6280; text-align: center; letter-spacing: 2px; margin-bottom: 12px; }
   .ph-bar { height: 3px; background: #241f38; border-radius: 2px; margin-bottom: 14px; overflow: hidden; }
   .ph-bar i { display: block; height: 100%; background: var(--gold); transition: width .3s; }
@@ -198,7 +209,9 @@
     padding: 12px; font-size: 13px; color: #cfc6e0; cursor: pointer; line-height: 1.4;
     transition: all .15s;
   }
-  .ph-opt:hover { border-color: var(--gold-dim); }
+  /* 터치 단말에서는 :hover 가 «눌린 채로» 남는다. 마우스가 있을 때만 건다. */
+  @media (hover: hover) { .ph-opt:hover { border-color: var(--gold-dim); } }
+  .ph-opt:active { transform: scale(.985); }
   .ph-opt.ok { background: var(--gold); color: #17131f; border-color: var(--gold); font-weight: 700; }
   .ph-opt.no { background: #4a1f1c; border-color: var(--red); color: #ffb9b4; }
   .ph-input {
@@ -210,6 +223,20 @@
     background: var(--gold); color: #17131f; font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit;
   }
   .ph-send:disabled { opacity: .35; cursor: default; }
+  /* ===== 랜딩 — QR로 막 들어온 관객이 처음 보는 화면 =====
+     그림이든 하단 버튼이든 누르면 시작한다. 엄지가 화면 어디에 있든
+     걸리도록 두 군데를 다 열어 둔다. */
+  .ph-landing { justify-content: center; align-items: center; }
+  .ph-art {
+    display: block; width: 100%; padding: 0; border: 0; background: none;
+    border-radius: 16px; overflow: hidden; line-height: 0; cursor: pointer;
+    min-height: 0; -webkit-tap-highlight-color: transparent;
+  }
+  .ph-art img { width: 100%; height: auto; max-height: 46vh; object-fit: contain; display: block; }
+  .ph-art:active { transform: scale(.99); }
+  .ph-lead { text-align: center; color: #8b849c; line-height: 1.7; font-size: 13px; margin-top: 16px; }
+  .ph-lead b { color: var(--gold); }
+
   .ph-done { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10px; color: #8b849c; font-size: 13px; line-height: 1.7; }
   .ph-done .big { font-size: 34px; }
   .ph-warn { font-size: 10px; color: #6a6280; margin-top: 10px; line-height: 1.5; }
@@ -245,23 +272,73 @@
   body.embed .screen-label { display: none; }
   body.embed #opbar { display: none; }
 
+  /* 무대 글씨·기둥을 화면 «높이» 기준으로 잡는다. px 로 두면 프로젝터
+     해상도가 1024든 1920이든 같은 픽셀이라, 해상도가 높을수록 상대적으로
+     작아진다. vh 로 두면 4:3이든 16:9든 화면에서 차지하는 비율이 같다.
+     (극장 스크린은 4:3 — 세로가 넉넉해 기둥이 길게 선다) */
+  body.embed .title { font-size: 2.1vh; }
+  body.embed .counter,
+  body.embed .join-num { font-size: 1.9vh; }
+  body.embed .pct { font-size: 12vh; }
+  body.embed .pct-unit { font-size: 4.2vh; padding-bottom: 1.2vh; }
+  body.embed .pct-cap { font-size: 2vh; margin-bottom: 1.6vh; }
+  body.embed .gauge-bar { width: 11vh; flex: 0 0 11vh; }
+  body.embed .gauge-scale { font-size: 1.6vh; right: calc(50% + 5.5vh + 1.6vh); }
+  body.embed .gauge-goal-lab { font-size: 1.6vh; top: -2.6vh; }
+  body.embed .gauge-legend { font-size: 2vh; }
+  body.embed .bubble { font-size: 2vh; }
+
   /* ===== 폰 전용 모드 (?p=1 — QR로 들어온 관객) =====
      관객에게는 무대 스크린을 보여주지 않는다. 각자의 폰에 각자의 게이지가
      따로 뜨면 무대 화면과 숫자가 서로 다르게 놀기 때문이다. */
-  body.phone-only { padding: 0; justify-content: flex-start; }
+  /* 문서 전체를 뷰포트에 고정한다. 스크롤은 본문(.ph-body)만 한다 —
+     페이지가 통째로 스크롤되면 하단 버튼이 따라 올라가 «고정»이 무너진다. */
+  body.phone-only {
+    padding: 0; justify-content: flex-start;
+    height: 100vh; height: 100dvh; min-height: 0; overflow: hidden;
+  }
+  body.phone-only .wrap,
+  body.phone-only .phone-side { height: 100%; }
   body.phone-only .screen,
   body.phone-only .phone-side > .cap,
   body.phone-only .phone-side > .ph-warn { display: none; }
   body.phone-only .wrap { max-width: 520px; gap: 0; }
   body.phone-only .phone-side { width: 100%; gap: 0; }
+  /* 화면을 꽉 채운다. dvh 는 주소창이 접혔다 펴져도 높이가 흔들리지 않는다
+     (vh 만 쓰면 하단 버튼이 브라우저 UI에 잘린다). 모르는 브라우저는 vh 로 떨어진다. */
   body.phone-only .phone {
-    width: 100%; height: auto; min-height: 100vh;
+    width: 100%; height: 100vh; height: 100dvh; min-height: 0;
     border: none; border-radius: 0; box-shadow: none;
-    padding: 26px 20px 32px;
+    padding: 0;
   }
-  body.phone-only .ph-opt { padding: 15px; font-size: 15px; }   /* 실제 손가락으로 누른다 */
-  body.phone-only .ph-send { padding: 15px; font-size: 15px; }
-  body.phone-only .ph-d { font-size: 25px; }
+  body.phone-only .ph-head {
+    padding: calc(14px + env(safe-area-inset-top)) 20px 12px;
+    border-bottom: 1px solid #241f38;
+  }
+  body.phone-only .ph-body { padding: 22px 20px 26px; }
+  /* 하단 버튼 — 엄지가 닿는 자리에 고정한다. 홈 인디케이터를 피해 여백을 준다. */
+  body.phone-only .ph-foot {
+    padding: 12px 20px calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid #241f38; background: #12101c;
+  }
+
+  /* 어두운 객석에서 서서 한 손으로 본다는 전제로 키운다 */
+  body.phone-only .ph-top { font-size: 12px; letter-spacing: 1px; margin-bottom: 10px; }
+  body.phone-only .ph-bar { height: 4px; margin-bottom: 0; }
+  body.phone-only .ph-q { font-size: 15px; margin-bottom: 8px; }
+  body.phone-only .ph-d { font-size: 27px; line-height: 1.45; margin-bottom: 22px; }
+  body.phone-only .ph-hint { font-size: 20px; letter-spacing: 7px; padding: 14px 16px; margin-bottom: 20px; }
+  body.phone-only .ph-hint b { font-size: 12px; letter-spacing: 0; }
+  body.phone-only .ph-opts { gap: 12px; }
+  /* 손가락으로 누른다 — 최소 58px. 44px 이하는 오터치가 난다. */
+  body.phone-only .ph-opt { padding: 17px 16px; font-size: 17px; border-radius: 14px; min-height: 58px; }
+  body.phone-only .ph-input { font-size: 18px; padding: 17px; border-radius: 14px; }
+  body.phone-only .ph-send { font-size: 18px; padding: 18px; border-radius: 14px; margin-top: 0; }
+  body.phone-only .ph-warn { font-size: 12px; margin-top: 14px; }
+  body.phone-only .ph-lead { font-size: 15px; }
+  body.phone-only .ph-art img { max-height: 50vh; max-height: 50dvh; }
+  body.phone-only .ph-done { font-size: 16px; gap: 14px; }
+  body.phone-only .ph-done .big { font-size: 54px; }
 
   /* 좁은 화면(관객이 폰으로 QR 찍고 들어온 경우)에서는 위아래로 쌓는다 */
   @media (max-width: 980px) {
@@ -763,7 +840,7 @@ function finish() {
     </p>
     ${EMBEDDED ? "" : `<p style="font-size:12px;color:#6a6280">클릭하면 처음부터 다시</p>`}`;
   fanfare();
-  $("phone").innerHTML = `<div class="ph-done"><div class="big">🏮</div>작전 완료!<br>고맙습니데이~</div>`;
+  $("phone").innerHTML = `<div class="ph-body"><div class="ph-done"><div class="big">🏮</div>작전 완료!<br>고맙습니데이~</div></div>`;
 }
 
 /* ── 관객 폰 → 서버 전송 ──────────────────────────────────
@@ -800,16 +877,24 @@ async function sendAnswer(text, hit) {
 
 /* ── 관객 폰 화면 ──────────────────────────────────────── */
 function renderPhoneLobby() {
+  /* 그림 파일이 없으면 그림만 조용히 사라지고 나머지는 그대로 동작한다.
+     공연 직전에 그림을 교체하다 실패해도 관객이 퀴즈를 못 푸는 일은 없어야 한다. */
   $("phone").innerHTML = `
-    <div class="ph-top">말모이 작전 · 1942 경성</div>
-    <div class="ph-done">
-      <div class="big">📡</div>
-      접속 완료!<br>
-      준비되면 아래를 누르세요.<br>
-      <span style="font-size:11px;color:#5d566f">순사에게 들키지 않도록<br>조용히 수행해 주세요</span>
+    <div class="ph-head"><div class="ph-top">말모이 작전 · 1942 경성</div></div>
+    <div class="ph-body ph-landing">
+      <button class="ph-art" id="phArt" aria-label="작전 시작">
+        <img src="landing.png" alt="말모이 작전"
+             onerror="this.closest('.ph-art').remove()">
+      </button>
+      <div class="ph-lead">
+        접속 완료!<br>
+        <b>그림이나 아래 버튼</b>을 누르면 시작합니다.<br>
+        <span style="font-size:.85em;color:#5d566f">순사에게 들키지 않도록 조용히 수행해 주세요</span>
+      </div>
     </div>
-    <button class="ph-send" id="phStart">작전 시작</button>`;
+    <div class="ph-foot"><button class="ph-send" id="phStart">작전 시작</button></div>`;
   $("phStart").onclick = startPlay;
+  if ($("phArt")) $("phArt").onclick = startPlay;
 }
 
 /* 답을 고르면 곧바로 다음 문제로 넘어간다 */
@@ -831,17 +916,24 @@ function dialectHTML(q) {
 function renderPhoneQuestion() {
   const q = QUESTIONS[qi];
   const head = `
-    <div class="ph-top">문제 ${qi + 1} / ${QUESTIONS.length} · ${q.type}</div>
-    <div class="ph-bar"><i style="width:${qi / QUESTIONS.length * 100}%"></i></div>
+    <div class="ph-head">
+      <div class="ph-top">문제 ${qi + 1} / ${QUESTIONS.length} · ${q.type}</div>
+      <div class="ph-bar"><i style="width:${qi / QUESTIONS.length * 100}%"></i></div>
+    </div>`;
+  const ask = `
     <div class="ph-q">${q.prompt}</div>
     <div class="ph-d">${dialectHTML(q)}</div>`;
 
   if (q.type === "주관식") {
-    $("phone").innerHTML = head +
-      (q.hint ? `<div class="ph-hint"><b>힌트</b>${q.hint}</div>` : "") + `
-      <input class="ph-input" id="phInput" placeholder="경상도 사투리로 입력" autocomplete="off">
-      <button class="ph-send" id="phSend">제출 (수정 불가)</button>
-      <div class="ph-warn">답을 입력 후 수정이 어렵습니다.<br>신중히 답해 주시길 바라겠습니다.</div>`;
+    /* 제출 버튼은 하단에 고정한다. 본문에 두면 폰 키보드가 올라올 때 밀려 사라진다. */
+    $("phone").innerHTML = head + `
+      <div class="ph-body">${ask}` +
+        (q.hint ? `<div class="ph-hint"><b>힌트</b>${q.hint}</div>` : "") + `
+        <input class="ph-input" id="phInput" placeholder="경상도 사투리로 입력"
+               autocomplete="off" autocapitalize="off" autocorrect="off" enterkeyhint="send">
+        <div class="ph-warn">답을 입력 후 수정이 어렵습니다.<br>신중히 답해 주시길 바라겠습니다.</div>
+      </div>
+      <div class="ph-foot"><button class="ph-send" id="phSend">제출 (수정 불가)</button></div>`;
     const submit = () => {
       const v = $("phInput").value.trim().replace(/[.!?]/g, "");
       if (!v) return;
@@ -856,8 +948,10 @@ function renderPhoneQuestion() {
     $("phInput").onkeydown = e => { if (e.key === "Enter") submit(); };
   } else {
     $("phone").innerHTML = head + `
-      <div class="ph-opts">${q.options.map((o, i) =>
-        `<div class="ph-opt" data-i="${i}"><b>${CIRCLED[i] || i + 1}</b> ${o}</div>`).join("")}</div>`;
+      <div class="ph-body">${ask}
+        <div class="ph-opts">${q.options.map((o, i) =>
+          `<div class="ph-opt" data-i="${i}"><b>${CIRCLED[i] || i + 1}</b> ${o}</div>`).join("")}</div>
+      </div>`;
     let locked = false;
     $("phone").querySelectorAll(".ph-opt").forEach(el => {
       el.onclick = () => {
@@ -875,11 +969,13 @@ function renderPhoneQuestion() {
 
 function renderPhoneDone() {
   $("phone").innerHTML = `
-    <div class="ph-top">내 몫은 끝!</div>
-    <div class="ph-done">
-      <div class="big">✍️</div>
-      ${QUESTIONS.length}문제 모두 응답했습니다.<br>
-      <span style="font-size:11px;color:#5d566f">무대 화면을 봐 주세요.<br>원고가 채워지고 있습니다…</span>
+    <div class="ph-head"><div class="ph-top">내 몫은 끝!</div></div>
+    <div class="ph-body">
+      <div class="ph-done">
+        <div class="big">✍️</div>
+        ${QUESTIONS.length}문제 모두 응답했습니다.<br>
+        <span style="font-size:.8em;color:#5d566f">무대 화면을 봐 주세요.<br>원고가 채워지고 있습니다…</span>
+      </div>
     </div>`;
 }
 
