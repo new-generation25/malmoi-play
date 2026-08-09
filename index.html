@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -11,8 +11,13 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
+    /* 기본(참여퀴즈창) — 금색 계열. 무대는 아래 body.stage 에서 갈아 끼운다. */
     --gold: #e8c069;
     --gold-dim: #8a7038;
+    --gold-lite: #fff3d0;      /* 하이라이트(수면·반짝임) */
+    --accent2: #c9a24f;        /* 보조색 — 게이지 아랫단·접속 바 */
+    --glow: 232, 192, 105;     /* rgba() 로 쓰는 발광색 */
+    --glow-lite: 255, 244, 214;/* 응답 도착 때 확 밝아지는 색 */
     --ink: #0d0b12;
     --paper: #f4ecd8;
     --red: #d8483f;
@@ -45,7 +50,7 @@
     position: relative;
     overflow: hidden;
     cursor: pointer;
-    box-shadow: 0 0 60px rgba(232,192,105,.08) inset;
+    box-shadow: 0 0 60px rgba(var(--glow),.08) inset;
   }
   .screen-label {
     position: absolute; top: 10px; right: 16px;
@@ -60,13 +65,13 @@
   .join-num { font-size: 13px; color: #b8b0cc; white-space: nowrap; }
   .join-num b { color: var(--gold); font-size: 20px; }
   .join-track { flex: 1; height: 6px; background: #241f38; border-radius: 3px; overflow: hidden; }
-  .join-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); transition: width .25s ease-out; }
+  .join-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent2), var(--gold)); transition: width .25s ease-out; }
 
   /* 로비 */
   .lobby { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 18px; }
-  .lobby h1 { font-size: 42px; color: var(--gold); letter-spacing: 6px; text-shadow: 0 0 30px rgba(232,192,105,.4); }
+  .lobby h1 { font-size: 42px; color: var(--gold); letter-spacing: 6px; text-shadow: 0 0 30px rgba(var(--glow),.4); }
   .lobby p { color: #9d94b5; line-height: 1.8; font-size: 15px; }
-  .qr-box { background: #fff; padding: 14px; border-radius: 10px; box-shadow: 0 0 40px rgba(232,192,105,.25); }
+  .qr-box { background: #fff; padding: 14px; border-radius: 10px; box-shadow: 0 0 40px rgba(var(--glow),.25); }
   .qr-url { font-size: 13px; color: var(--gold); letter-spacing: 1px; }
 
   /* ===== 복원율 게이지 무대 ===== */
@@ -92,8 +97,8 @@
     pointer-events: none;
   }
   .bubble.hit {
-    background: rgba(232,192,105,.55); border-color: var(--gold);
-    box-shadow: 0 0 22px rgba(232,192,105,.75);
+    background: rgba(var(--glow),.55); border-color: var(--gold);
+    box-shadow: 0 0 22px rgba(var(--glow),.75);
   }
   @keyframes rise {
     0%   { transform: translateY(0) scale(.4); opacity: 0; }
@@ -107,7 +112,7 @@
   .pct {
     font-size: 88px; font-weight: 800; line-height: 1;
     color: var(--gold); letter-spacing: -2px;
-    text-shadow: 0 0 46px rgba(232,192,105,.45);
+    text-shadow: 0 0 46px rgba(var(--glow),.45);
     font-variant-numeric: tabular-nums;
   }
   .pct-unit { font-size: 30px; font-weight: 700; color: var(--gold-dim); padding-bottom: 8px; }
@@ -136,8 +141,8 @@
   }
   .gauge-fill {
     width: 100%; height: 0%; border-radius: 44px;
-    background: linear-gradient(0deg, #8a7038, var(--gold) 70%, #fff3d0);
-    box-shadow: 0 0 30px rgba(232,192,105,.55);
+    background: linear-gradient(0deg, var(--accent2), var(--gold) 62%, var(--gold-lite));
+    box-shadow: 0 0 30px rgba(var(--glow),.55);
     transition: height .5s cubic-bezier(.34,1.3,.64,1), background .3s;
     position: relative;
   }
@@ -149,9 +154,9 @@
   /* 응답 1건이 도착할 때마다 기둥이 «출렁» 한다. 게이지가 조금씩 오르는 것만으로는
      멀리서 변화가 안 보여, 도착 자체를 눈에 띄게 만든다. */
   @keyframes surge {
-    0%   { box-shadow: 0 0 30px rgba(232,192,105,.55); }
-    30%  { box-shadow: 0 0 70px rgba(255,244,214,.95); }
-    100% { box-shadow: 0 0 30px rgba(232,192,105,.55); }
+    0%   { box-shadow: 0 0 30px rgba(var(--glow),.55); }
+    30%  { box-shadow: 0 0 70px rgba(var(--glow-lite),.95); }
+    100% { box-shadow: 0 0 30px rgba(var(--glow),.55); }
   }
   .gauge-fill.surge { animation: surge .45s ease-out; }
   @keyframes bump { 0% { transform: none; } 30% { transform: scale(1.09); } 100% { transform: none; } }
@@ -171,9 +176,9 @@
   .verdict {
     position: absolute; inset: 0; display: none;
     align-items: center; justify-content: center; flex-direction: column; gap: 12px;
-    background: radial-gradient(circle, rgba(232,192,105,.18), rgba(13,11,18,.92));
+    background: radial-gradient(circle, rgba(var(--glow),.18), rgba(13,11,18,.92));
     font-size: 60px; color: var(--gold); font-weight: 800; letter-spacing: 8px;
-    text-shadow: 0 0 40px rgba(232,192,105,.8);
+    text-shadow: 0 0 40px rgba(var(--glow),.8);
     animation: pop .5s ease-out;
     pointer-events: none;
   }
@@ -264,6 +269,19 @@
   /* ===== 무대 스크린 모드 (/ — 진행자) =====
      관객은 각자 폰으로 들어오므로 무대에 폰 목업을 띄울 이유가 없다. */
   body.stage .phone-side { display: none; }
+
+  /* 무대 색 — 핑크 + 밝은 하늘색.
+     변수만 갈아 끼우므로 참여퀴즈창(관객 폰)은 금색 그대로다.
+     body.embed 에도 stage 클래스가 함께 붙으므로 Q-Studio 출력창에도 적용된다.
+     배경은 어둡게 둔다 — 프로젝터에서 밝은 바탕은 객석을 덮고 글씨가 뜨지 않는다. */
+  body.stage {
+    --gold: #ff8fc4;         /* 핑크 — 제목·숫자·목표선 */
+    --gold-dim: #8d5673;
+    --gold-lite: #ffe4f1;    /* 수면 하이라이트 */
+    --accent2: #7fd4ff;      /* 밝은 하늘색 — 게이지 아랫단·접속 바 */
+    --glow: 255, 143, 196;
+    --glow-lite: 255, 228, 241;
+  }
 
   /* 진행자 조작 바 — 프로젝션 밖(화면 맨 아래)에 두고 H로 숨긴다 */
   #opbar {
@@ -864,7 +882,7 @@ function pinPct(to) {             // 90 / 100 — 그 값에 못박는다
 /* ── 축포 ──────────────────────────────────────────────────
    양쪽 아래에서 조각이 솟구쳤다 흩어져 떨어진다. 조각마다 궤적이 달라야
    «펑» 하고 터진 것으로 보이므로 CSS 키프레임 대신 각자 애니메이션을 준다. */
-const CONFETTI = ["#e8c069", "#fff3d0", "#8a7038", "#d8483f", "#7a68b8", "#4bbf73"];
+const CONFETTI = ["#ff8fc4", "#7fd4ff", "#ffe4f1", "#c9e9ff", "#ff5fa8", "#3fb8ef"];
 function confetti(n = 110) {
   const box = $("confetti");
   if (!box) return;
@@ -1107,11 +1125,26 @@ function renderPhoneQuestion() {
    엔딩은 1~2초 늦어도 무대를 보고 있으므로 티가 나지 않는다.
    실패해도 조용히 넘어간다 — 퀴즈 진행을 막으면 안 된다. */
 let phoneWatcher = null;
-function watchFinish() {
+let sinceId = 0;              // 이 폰이 접속한 시점의 마지막 응답 id
+
+/* ⚠ 신호 행은 테이블에 그대로 남는다. 기준선 없이 «신호가 있나» 만 물으면
+   지난 회차(리허설 포함)에 눌러 둔 0 키 때문에, 접속하자마자 작전 성공으로
+   건너뛴다. 그래서 접속 시점의 마지막 id 를 기준선으로 잡고 «그보다 새로운»
+   신호에만 반응한다. 옛 신호는 그대로 있어도 무해해진다. */
+async function watchFinish() {
   if (!LIVE || phoneWatcher) return;
+  try {
+    const r = await db(`answers?session=eq.${SESSION}&select=id&order=id.desc&limit=1`);
+    const rows = await r.json();
+    sinceId = rows.length ? rows[0].id : 0;
+  } catch (e) {
+    /* 기준선을 못 잡았는데 감시를 시작하면 옛 신호에 걸린다. 잠시 뒤 다시 시도한다. */
+    setTimeout(watchFinish, 3000);
+    return;
+  }
   phoneWatcher = setInterval(async () => {
     try {
-      const r = await db(`answers?session=eq.${SESSION}&qi=eq.-1&select=id&limit=1`);
+      const r = await db(`answers?session=eq.${SESSION}&qi=eq.-1&id=gt.${sinceId}&select=id&limit=1`);
       if ((await r.json()).length) phoneFinish();
     } catch (e) { /* 다음 차례에 다시 본다 */ }
   }, 3000);
