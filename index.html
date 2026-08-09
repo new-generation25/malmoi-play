@@ -182,6 +182,11 @@
   .verdict .sub { font-size: 16px; letter-spacing: 2px; color: #b8b0cc; font-weight: 400; text-shadow: none; }
   @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
+  /* 축포 — 100% 달성 순간. 조각은 JS가 만들고 Web Animations 로 날린다
+     (조각마다 궤적이 달라야 해서 CSS 키프레임 하나로는 안 된다). */
+  .confetti { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 60; }
+  .confetti i { position: absolute; display: block; border-radius: 2px; will-change: transform, opacity; }
+
   .screen.shake { animation: shake .45s; }
   @keyframes shake {
     0%,100% { transform: translateX(0); }
@@ -447,6 +452,9 @@
   </div>
 </div>
 
+<!-- 축포. 무대와 관객 폰 양쪽에서 쓰므로 화면 전체에 고정한다 -->
+<div class="confetti" id="confetti"></div>
+
 <!-- QR Code Generator for JavaScript (c) 2009 Kazuhiko Arase — MIT -->
 <script src="qrcode.js"></script>
 <script>
@@ -618,6 +626,7 @@ function beep(freq, dur = 0.05, vol = 0.05, type = "triangle") {
   } catch (e) {}
 }
 const fanfare = () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.25, 0.07, "square"), i * 110));
+const boom = () => { beep(95, 0.35, 0.09, "sine"); setTimeout(() => beep(72, 0.4, 0.08, "sine"), 190); };
 const alarm = () => [400, 300, 400, 300].forEach((f, i) => setTimeout(() => beep(f, 0.18, 0.08, "sawtooth"), i * 140));
 
 /* ── 실제로 스캔되는 QR 생성 (오류정정 레벨 M) ──────────── */
@@ -712,6 +721,7 @@ function startLobby() {
   if (PHONE_ONLY) {                    // 관객 폰: 무대 연출 없이 곧장 폰 화면만
     document.body.classList.add("phone-only");
     joinLive();                        // 접속했음을 서버에 알린다
+    watchFinish();                     // 무대가 «작전 성공»을 알리면 같이 축포
     renderPhoneLobby();
     return;
   }
@@ -771,11 +781,12 @@ async function poll() {
   polling = true;
   try {
     const r = await db(`answers?session=eq.${SESSION}&id=gt.${lastId}` +
-                       `&select=id,text,hit&order=id.asc&limit=200`);
+                       `&select=id,qi,hit&order=id.asc&limit=200`);
     const rows = await r.json();
     for (const row of rows) {
       lastId = Math.max(lastId, row.id);
-      if (phase === "play") addAnswer(!!row.hit);   // row.text 는 무대에 쓰지 않는다
+      if (row.qi < 0) continue;                     // 폰에 보낸 «작전 성공» 신호 행
+      if (phase === "play") addAnswer(!!row.hit);   // 답 글자는 무대에 쓰지 않는다
       else { answered++; $("answeredNum").textContent = "응답 " + answered; }
     }
     if (phase === "play" && !rows.length) paintGauge();
@@ -846,8 +857,61 @@ function pinPct(to) {             // 90 / 100 — 그 값에 못박는다
   $("gaugeMsg").textContent = to >= 100
     ? "말모이 원고가 완전히 복원되었습니다!"
     : "원고가 거의 복원되었습니다…";
-  if (to >= 100) fanfare();
+  if (to >= 100) celebrate();     // 100%는 곧 엔딩이다
   showOpBar();
+}
+
+/* ── 축포 ──────────────────────────────────────────────────
+   양쪽 아래에서 조각이 솟구쳤다 흩어져 떨어진다. 조각마다 궤적이 달라야
+   «펑» 하고 터진 것으로 보이므로 CSS 키프레임 대신 각자 애니메이션을 준다. */
+const CONFETTI = ["#e8c069", "#fff3d0", "#8a7038", "#d8483f", "#7a68b8", "#4bbf73"];
+function confetti(n = 110) {
+  const box = $("confetti");
+  if (!box) return;
+  const W = box.clientWidth, H = box.clientHeight;
+  for (let i = 0; i < n; i++) {
+    const left = i % 2 ? W * 0.14 : W * 0.86;          // 좌·우 두 문에서 쏜다
+    const aim = i % 2 ? 1 : -1;                        // 각자 화면 안쪽으로
+    const w = 6 + Math.random() * 8;
+    const p = document.createElement("i");
+    p.style.cssText = `left:${left}px; top:${H}px; width:${w}px; height:${w * .6}px;` +
+                      `background:${CONFETTI[i % CONFETTI.length]}`;
+    box.appendChild(p);
+    const dx = aim * W * (0.15 + Math.random() * 0.6);
+    const up = -H * (0.45 + Math.random() * 0.5);
+    p.animate([
+      { transform: "translate(0,0) rotate(0deg)", opacity: 1 },
+      { transform: `translate(${dx * .55}px, ${up}px) rotate(${200 + Math.random() * 300}deg)`,
+        opacity: 1, offset: .42 },
+      { transform: `translate(${dx}px, ${H * .3}px) rotate(${600 + Math.random() * 700}deg)`,
+        opacity: 0 },
+    ], { duration: 1700 + Math.random() * 900, easing: "cubic-bezier(.2,.55,.35,1)" })
+     .onfinish = () => p.remove();
+  }
+}
+
+/* 100% 달성 — 축포를 터뜨리고 1초 뒤 스스로 종료 화면으로 넘어간다.
+   진행자가 따로 종료를 누르지 않아도 장면이 닫히게 하려는 것이다. */
+function celebrate() {
+  confetti();
+  boom();
+  fanfare();
+  signalFinish();          // 관객 폰에도 같은 엔딩을 띄운다
+  later(finish, 1000);
+}
+
+/* ── 무대 → 관객 폰 «작전 성공» 신호 ───────────────────────
+   두 화면을 잇는 통로가 Supabase 뿐이라 여기로 보낸다. 테이블을 새로 만들지
+   않으려고 answers 에 qi = -1 인 «신호 행»을 한 줄 넣는다(스키마 변경 없음).
+   무대 폴링은 qi < 0 인 행을 응답으로 세지 않고 건너뛴다. */
+async function signalFinish() {
+  if (!LIVE) return;
+  try {
+    await db("answers", {
+      method: "POST",
+      body: JSON.stringify({ device: "__stage__", session: SESSION, qi: -1, text: "finish", hit: true }),
+    });
+  } catch (e) { console.warn("완료 신호 전송 실패:", e.message); }
 }
 function autoPct() {              // 개입 해제 — 실집계 값으로 되돌린다
   pinned = null; anchor = null;
@@ -883,7 +947,7 @@ function showOpBar() {
     `<span>${net}</span>` +
     `<span>접속 <b>${joined}</b> · 응답 <b>${answered}</b> · 게이지 <b>${Math.round(shownPct())}%</b></span>` +
     `<span>모드: ${mode}</span>` +
-    `<span class="k">클릭 진행 · <b>1</b> +1% · <b>7</b> 급습(70) · <b>9</b> 90% · <b>0</b> 100% · <b>A</b> 자동 · <b>E</b> 종료 · <b>H</b> 숨김</span>`;
+    `<span class="k">클릭 진행 · <b>1</b> +1% · <b>7</b> 급습(70) · <b>9</b> 90% · <b>0</b> 100%+축포→종료 · <b>A</b> 자동 · <b>H</b> 숨김</span>`;
 }
 
 /* ── 종료 ──────────────────────────────────────────────── */
@@ -897,11 +961,15 @@ function finish() {
   $("done").style.display = "flex";
   $("counter").textContent = "";
   $("hint").textContent = EMBEDDED ? "" : "클릭하면 처음부터 다시";
+  /* 100%로 끝내면(0 키) «나머지 0%는 여러분의 입으로» 가 되어 말이 안 된다.
+     그때는 다 되찾았다는 쪽으로 문장을 바꾼다. */
   $("done").innerHTML = `
     <h1>작전 완료</h1>
     <p style="font-size:17px;line-height:2">
       말모이 원고를 <b style="color:var(--gold);font-size:30px">${p}%</b> 되찾았습니다.<br>
-      나머지 ${100 - p}%는… 여러분의 입으로 이어 주십시오.<br>
+      ${p >= 100
+        ? "여러분의 입이 원고를 전부 되살렸습니다."
+        : `나머지 ${100 - p}%는… 여러분의 입으로 이어 주십시오.`}<br>
       와우, 여러분은 경상도 토박이시군요!<br><br>
       <span style="font-size:14px;color:#6a6280">— 이어서 「경상도 노래부르기 작전」으로 —</span>
     </p>
@@ -1034,6 +1102,42 @@ function renderPhoneQuestion() {
   }
 }
 
+/* ── 관객 폰: 무대의 «작전 성공»을 기다린다 ────────────────
+   3초마다 신호 행이 생겼는지만 본다. 폰이 수백 대라 자주 물으면 부담이 되고,
+   엔딩은 1~2초 늦어도 무대를 보고 있으므로 티가 나지 않는다.
+   실패해도 조용히 넘어간다 — 퀴즈 진행을 막으면 안 된다. */
+let phoneWatcher = null;
+function watchFinish() {
+  if (!LIVE || phoneWatcher) return;
+  phoneWatcher = setInterval(async () => {
+    try {
+      const r = await db(`answers?session=eq.${SESSION}&qi=eq.-1&select=id&limit=1`);
+      if ((await r.json()).length) phoneFinish();
+    } catch (e) { /* 다음 차례에 다시 본다 */ }
+  }, 3000);
+}
+
+/* 무대와 같은 «작전 완료» 화면 + 축포.
+   소리는 내지 않는다 — 폰 수백 대가 동시에 울리면 객석이 소란해지고,
+   그 순간 관객이 봐야 할 것은 무대다. */
+function phoneFinish() {
+  if (phase === "end") return;                     // 두 번 터지지 않게
+  phase = "end";
+  if (phoneWatcher) { clearInterval(phoneWatcher); phoneWatcher = null; }
+  $("phone").innerHTML = `
+    <div class="ph-head"><div class="ph-top">말모이 작전 · 완료</div></div>
+    <div class="ph-body">
+      <div class="ph-done">
+        <div class="big">🏮</div>
+        <b style="color:var(--gold);font-size:1.5em">작전 성공!</b><br>
+        말모이 원고를 <b style="color:var(--gold)">100%</b> 되찾았습니다.<br>
+        여러분의 입이 원고를 전부 되살렸습니다.<br>
+        <span style="font-size:.85em;color:#5d566f">고맙습니데이~<br>무대 화면을 봐 주세요</span>
+      </div>
+    </div>`;
+  confetti();
+}
+
 function renderPhoneDone() {
   $("phone").innerHTML = `
     <div class="ph-head"><div class="ph-top">내 몫은 끝!</div></div>
@@ -1071,7 +1175,6 @@ if (!EMBEDDED) {
     else if (k === "9") { if (phase === "play") pinPct(90); }      // 90% 고정
     else if (k === "0") { if (phase === "play") pinPct(100); }     // 100% 고정
     else if (k === "a" || k === "A") { if (phase === "play") autoPct(); }  // 개입 해제
-    else if (k === "e" || k === "E") { if (phase === "play") finish(); }   // 즉시 종료
     else if (k === "h" || k === "H") { $("opbar").classList.toggle("off"); }
   };
 }
@@ -1110,6 +1213,7 @@ function resetStage() {
   $("counter").textContent = "";
   $("gaugeMsg").textContent = "관객의 응답을 기다리는 중…";
   $("bubbles").innerHTML = "";
+  $("confetti").innerHTML = "";
   $("verdict").className = "verdict";
   $("gaugeFill").classList.remove("drop");
   paintGauge();
