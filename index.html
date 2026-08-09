@@ -141,6 +141,16 @@
     background: #fff; opacity: .85; box-shadow: 0 0 14px #fff;
   }
   .gauge-fill.drop { background: linear-gradient(0deg, #6b2b26, var(--red)); box-shadow: 0 0 30px rgba(216,72,63,.6); }
+  /* 응답 1건이 도착할 때마다 기둥이 «출렁» 한다. 게이지가 조금씩 오르는 것만으로는
+     멀리서 변화가 안 보여, 도착 자체를 눈에 띄게 만든다. */
+  @keyframes surge {
+    0%   { box-shadow: 0 0 30px rgba(232,192,105,.55); }
+    30%  { box-shadow: 0 0 70px rgba(255,244,214,.95); }
+    100% { box-shadow: 0 0 30px rgba(232,192,105,.55); }
+  }
+  .gauge-fill.surge { animation: surge .45s ease-out; }
+  @keyframes bump { 0% { transform: none; } 30% { transform: scale(1.09); } 100% { transform: none; } }
+  .pct.bump { animation: bump .35s ease-out; }
   .gauge-goal {                               /* 목표선 = 기둥 맨 위 */
     position: absolute; left: -12px; right: -12px; top: 0; height: 2px;
     background: var(--gold); opacity: .6; z-index: 2;
@@ -232,7 +242,10 @@
     border-radius: 16px; overflow: hidden; line-height: 0; cursor: pointer;
     min-height: 0; -webkit-tap-highlight-color: transparent;
   }
-  .ph-art img { width: 100%; height: auto; max-height: 46vh; object-fit: contain; display: block; }
+  /* 세로로 긴 그림이라 폭이 아니라 «높이»로 맞춘다. 폭에 맞추면 화면을
+     넘겨 하단 버튼을 밀어낸다. width/height 속성을 함께 둬서 로드 전에도
+     자리를 차지하게 한다(그림이 뜨는 순간 버튼이 튀는 것을 막는다). */
+  .ph-art img { width: auto; max-width: 100%; height: auto; max-height: 46vh; object-fit: contain; display: block; margin: 0 auto; }
   .ph-art:active { transform: scale(.99); }
   .ph-lead { text-align: center; color: #8b849c; line-height: 1.7; font-size: 13px; margin-top: 16px; }
   .ph-lead b { color: var(--gold); }
@@ -561,18 +574,37 @@ const $ = id => document.getElementById(id);
 const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
 const later = (fn, ms) => timers.push(setTimeout(fn, ms));
 
-/* ── 극적 효과용 사운드 ─────────────────────────────────── */
+/* ── 극적 효과용 사운드 ───────────────────────────────────
+   브라우저는 사용자가 한 번 조작하기 전까지 소리를 막는다(AudioContext가
+   suspended 로 뜬다). 단독 실행은 진행자가 화면을 클릭해 시작하므로 저절로
+   풀리지만, Q-Studio 출력창 안에서는 클릭이 출력창에 떨어지고 iframe 에는
+   오지 않아 영영 잠긴 채로 남는다. 그래서 부모 문서의 조작에도 귀를 연다. */
 let ac, lastBeep = 0;
-function beep(freq, dur = 0.05, vol = 0.05, type = "triangle") {
-  if (!ON_STAGE) return;      // 조종창 미러에서 겹쳐 울리지 않게 (무대에서만 소리)
+function audio() {
+  if (!ON_STAGE) return null;   // 조종창 미러에서 겹쳐 울리지 않게 (무대에서만 소리)
   try {
     ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-    const o = ac.createOscillator(), g = ac.createGain();
+    if (ac.state === "suspended") ac.resume();
+    return ac.state === "running" ? ac : null;
+  } catch (e) { return null; }
+}
+function armAudio() {
+  const docs = [document];
+  try { if (EMBEDDED && parent.document) docs.push(parent.document); } catch (e) { /* 교차 출처 */ }
+  docs.forEach(d => ["pointerdown", "keydown", "touchstart"].forEach(
+    ev => d.addEventListener(ev, audio, { capture: true, passive: true })));
+}
+
+function beep(freq, dur = 0.05, vol = 0.05, type = "triangle") {
+  const ctx = audio();
+  if (!ctx) return;
+  try {
+    const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type; o.frequency.value = freq;
-    g.gain.setValueAtTime(vol, ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
-    o.connect(g); g.connect(ac.destination);
-    o.start(); o.stop(ac.currentTime + dur);
+    g.gain.setValueAtTime(vol, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + dur);
   } catch (e) {}
 }
 const fanfare = () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.25, 0.07, "square"), i * 110));
@@ -620,13 +652,35 @@ function paintGauge() {
   $("gaugeFill").style.height = p + "%";   // 세로 기둥 — 아래에서 위로 찬다
 }
 
-/* ── 응답 1건 도착 ─────────────────────────────────────── */
+/* 애니메이션을 다시 트리거한다. 클래스를 떼었다 붙이는 것만으로는 같은 프레임에
+   합쳐져 아무 일도 일어나지 않으므로, 그 사이에 강제로 리플로우를 끼운다. */
+function pulse(el, cls, ms) {
+  if (!el) return;
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), ms);
+}
+
+/* ── 응답 1건 도착 ───────────────────────────────────────
+   참여퀴즈창에서 관객이 한 문제 풀 때마다 여기로 온다(폴링이 물어 온다).
+   무대에서는 «말풍선 + 기둥 출렁 + 숫자 튐 + 소리» 네 가지가 같이 난다. */
 function addAnswer(text, hit) {
   answered++;
   $("answeredNum").textContent = "응답 " + answered;
   paintGauge();
   popBubble(text, hit);
-  if (Date.now() - lastBeep > 45) { lastBeep = Date.now(); beep(520 + Math.random() * 260, 0.03, 0.03); }
+
+  if (!$("gaugeFill").classList.contains("drop")) pulse($("gaugeFill"), "surge", 450);
+  pulse($("pctNum"), "bump", 350);
+
+  /* 정답은 높고 맑게, 오답은 낮고 둔하게 — 무대에서 분위기가 읽힌다.
+     45ms 안에 몰린 응답은 소리를 겹치지 않는다(뭉개져서 잡음이 된다). */
+  if (Date.now() - lastBeep > 45) {
+    lastBeep = Date.now();
+    if (hit) beep(720 + Math.random() * 200, 0.06, 0.05, "triangle");
+    else     beep(400 + Math.random() * 110, 0.05, 0.035, "sine");
+  }
 }
 
 /* ── 말풍선 뿅 ─────────────────────────────────────────── */
@@ -652,6 +706,7 @@ function startLobby() {
     return;
   }
   document.body.classList.add("stage"); // 무대: 폰 목업을 숨긴다
+  armAudio();                           // 첫 조작이 오는 즉시 소리 잠금을 푼다
   drawQR();
   showOpBar();
   if (LIVE) { poll(); startPolling(); return; }   // 실집계: 접속자가 들어오는 대로 표시
@@ -883,7 +938,7 @@ function renderPhoneLobby() {
     <div class="ph-head"><div class="ph-top">말모이 작전 · 1942 경성</div></div>
     <div class="ph-body ph-landing">
       <button class="ph-art" id="phArt" aria-label="작전 시작">
-        <img src="landing.png" alt="말모이 작전"
+        <img src="landing.jpg" alt="말모이 작전" width="900" height="1341"
              onerror="this.closest('.ph-art').remove()">
       </button>
       <div class="ph-lead">
