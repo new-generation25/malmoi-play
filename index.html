@@ -856,6 +856,17 @@ function autoPct() {              // 개입 해제 — 실집계 값으로 되�
   showOpBar();
 }
 
+/* 1 키 — 의견 한 건을 손으로 올린다. 게이지가 1%p 오르고, 말풍선·소리·출렁까지
+   진짜 응답이 도착한 것과 똑같이 난다.
+   집계가 끊겼을 때(«집계 끊김» 표시) 진행자가 장면을 이어 갈 수 있게 하는 것이
+   목적이다. 7/9/0 은 한 번에 크게 뛰지만 이건 한 칸씩이라 리듬을 만들 수 있다.
+   pinned 를 쓰므로 이 뒤로는 실집계가 게이지를 밀지 않는다 — A 로 되돌린다. */
+function bumpOne() {
+  pinned = Math.min(100, Math.round(shownPct()) + 1);
+  addAnswer(Math.random() < 0.62);   // 카운터·말풍선·소리·출렁을 진짜 응답과 같게
+  showOpBar();
+}
+
 /* ── 진행자 조작 바 (관객석에서 안 보이도록 화면 맨 아래) ── */
 function showOpBar() {
   if (PHONE_ONLY) return;
@@ -872,7 +883,7 @@ function showOpBar() {
     `<span>${net}</span>` +
     `<span>접속 <b>${joined}</b> · 응답 <b>${answered}</b> · 게이지 <b>${Math.round(shownPct())}%</b></span>` +
     `<span>모드: ${mode}</span>` +
-    `<span class="k">클릭 진행 · <b>7</b> 급습(70) · <b>9</b> 90% · <b>0</b> 100% · <b>A</b> 자동 · <b>E</b> 종료 · <b>H</b> 숨김</span>`;
+    `<span class="k">클릭 진행 · <b>1</b> +1% · <b>7</b> 급습(70) · <b>9</b> 90% · <b>0</b> 100% · <b>A</b> 자동 · <b>E</b> 종료 · <b>H</b> 숨김</span>`;
 }
 
 /* ── 종료 ──────────────────────────────────────────────── */
@@ -1055,6 +1066,7 @@ if (!EMBEDDED) {
     if (e.target.tagName === "INPUT") return;      // 주관식 입력의 Enter까지 삼키면 안 된다
     const k = e.key;
     if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); $("screen").click(); }
+    else if (k === "1") { if (phase === "play") bumpOne(); }       // 의견 1건 — +1%
     else if (k === "7") { if (phase === "play") { clickStep = 2; sabotage(); } }  // 급습 → 70%
     else if (k === "9") { if (phase === "play") pinPct(90); }      // 90% 고정
     else if (k === "0") { if (phase === "play") pinPct(100); }     // 100% 고정
