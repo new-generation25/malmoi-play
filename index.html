@@ -65,16 +65,15 @@
   .qr-url { font-size: 13px; color: var(--gold); letter-spacing: 1px; }
 
   /* ===== 복원율 게이지 무대 ===== */
-  .stage { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-  /* 말풍선 영역(왼쪽) + 세로 게이지 기둥(오른쪽) */
-  .stage-row { flex: 1; display: flex; gap: 28px; align-items: stretch; min-height: 0; }
+  .stage { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
+  /* 게이지 기둥은 무대 한가운데에 세운다. 말풍선은 그 뒤로 깔려 떠오른다. */
   .gauge-col {
-    flex: 0 0 220px; display: flex; flex-direction: column;
-    align-items: center; min-height: 0;
+    position: relative; z-index: 1; flex: 1;
+    display: flex; flex-direction: column; align-items: center; min-height: 0;
   }
 
-  /* 물방울이 떠오르는 영역 */
-  .bubble-field { flex: 1; position: relative; overflow: hidden; min-height: 210px; }
+  /* 물방울이 떠오르는 영역 — 무대 전체를 뒷배경으로 쓴다 */
+  .bubble-field { position: absolute; inset: 0; overflow: hidden; }
   .bubble {
     position: absolute; bottom: 0;
     padding: 7px 14px; border-radius: 16px 16px 16px 4px;
@@ -102,16 +101,19 @@
     font-variant-numeric: tabular-nums;
   }
   .pct-unit { font-size: 30px; font-weight: 700; color: var(--gold-dim); padding-bottom: 8px; }
-  .pct-cap { text-align: center; font-size: 12px; color: #8b849c; letter-spacing: 1px; line-height: 1.5; margin-bottom: 10px; }
+  .pct-cap { text-align: center; font-size: 13px; color: #8b849c; letter-spacing: 3px; margin-bottom: 10px; }
 
   /* 메인 게이지 — 세로 기둥. 원고가 «차오르는» 것으로 읽히도록 아래에서 위로 찬다.
      말풍선도 아래에서 떠오르므로 방향이 같아 무대에서 한 덩어리로 보인다. */
   .gauge {
-    flex: 1; min-height: 190px; width: 100%;
-    display: flex; align-items: stretch; justify-content: center; gap: 12px;
+    position: relative; flex: 1; min-height: 190px; width: 100%;
+    display: flex; align-items: stretch; justify-content: center;
     padding-top: 20px;                       /* «목표 100%» 라벨 자리 */
   }
+  /* 눈금은 흐름에서 빼서 절대 배치한다. 흐름에 두면 그 폭만큼 기둥이
+     오른쪽으로 밀려, 화면 한가운데에 서지 않는다. */
   .gauge-scale {
+    position: absolute; top: 20px; bottom: 0; right: calc(50% + 56px);
     display: flex; flex-direction: column; justify-content: space-between;
     font-size: 11px; color: #6a6280; letter-spacing: 1px; text-align: right;
   }
@@ -269,10 +271,8 @@
     .phone-side { width: 100%; }
     .lobby h1 { font-size: 32px; }
     .pct { font-size: 60px; }
-    .bubble-field { min-height: 150px; }
-    .stage-row { gap: 16px; }
-    .gauge-col { flex-basis: 150px; }
     .gauge-bar { width: 62px; flex-basis: 62px; }
+    .gauge-scale { right: calc(50% + 43px); }
   }
   @media (prefers-reduced-motion: reduce) {
     .gauge-fill, .join-fill, .ph-bar i { transition: none; }
@@ -312,22 +312,20 @@
 
     <!-- 복원율 게이지 무대 -->
     <div class="stage" id="stage" style="display:none">
-      <div class="stage-row">
-        <div class="bubble-field" id="bubbles"></div>
+      <div class="bubble-field" id="bubbles"></div>
 
-        <!-- 세로 복원율 게이지 -->
-        <div class="gauge-col">
-          <div class="pct-row">
-            <div class="pct" id="pctNum">0</div>
-            <div class="pct-unit">%</div>
-          </div>
-          <div class="pct-cap">말모이 원고 복원율</div>
-          <div class="gauge">
-            <div class="gauge-scale"><span>100%</span><span>50%</span><span>0%</span></div>
-            <div class="gauge-bar">
-              <div class="gauge-goal"><div class="gauge-goal-lab">목표 100%</div></div>
-              <div class="gauge-track"><div class="gauge-fill" id="gaugeFill"></div></div>
-            </div>
+      <!-- 세로 복원율 게이지 — 무대 한가운데 -->
+      <div class="gauge-col">
+        <div class="pct-row">
+          <div class="pct" id="pctNum">0</div>
+          <div class="pct-unit">%</div>
+        </div>
+        <div class="pct-cap">말 모 이 　 원 고 　 복 원 율</div>
+        <div class="gauge">
+          <div class="gauge-scale"><span>100%</span><span>50%</span><span>0%</span></div>
+          <div class="gauge-bar">
+            <div class="gauge-goal"><div class="gauge-goal-lab">목표 100%</div></div>
+            <div class="gauge-track"><div class="gauge-fill" id="gaugeFill"></div></div>
           </div>
         </div>
       </div>
