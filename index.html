@@ -65,7 +65,13 @@
   .qr-url { font-size: 13px; color: var(--gold); letter-spacing: 1px; }
 
   /* ===== 복원율 게이지 무대 ===== */
-  .stage { flex: 1; display: flex; flex-direction: column; }
+  .stage { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  /* 말풍선 영역(왼쪽) + 세로 게이지 기둥(오른쪽) */
+  .stage-row { flex: 1; display: flex; gap: 28px; align-items: stretch; min-height: 0; }
+  .gauge-col {
+    flex: 0 0 220px; display: flex; flex-direction: column;
+    align-items: center; min-height: 0;
+  }
 
   /* 물방울이 떠오르는 영역 */
   .bubble-field { flex: 1; position: relative; overflow: hidden; min-height: 210px; }
@@ -88,7 +94,7 @@
   }
 
   /* 큰 복원율 숫자 */
-  .pct-row { display: flex; align-items: flex-end; justify-content: center; gap: 10px; margin-bottom: 10px; }
+  .pct-row { display: flex; align-items: flex-end; justify-content: center; gap: 10px; margin-bottom: 4px; }
   .pct {
     font-size: 88px; font-weight: 800; line-height: 1;
     color: var(--gold); letter-spacing: -2px;
@@ -96,35 +102,47 @@
     font-variant-numeric: tabular-nums;
   }
   .pct-unit { font-size: 30px; font-weight: 700; color: var(--gold-dim); padding-bottom: 8px; }
-  .pct-cap { text-align: center; font-size: 13px; color: #8b849c; letter-spacing: 3px; margin-bottom: 18px; }
+  .pct-cap { text-align: center; font-size: 12px; color: #8b849c; letter-spacing: 1px; line-height: 1.5; margin-bottom: 10px; }
 
-  /* 메인 게이지 */
-  .gauge { position: relative; margin-bottom: 10px; }
+  /* 메인 게이지 — 세로 기둥. 원고가 «차오르는» 것으로 읽히도록 아래에서 위로 찬다.
+     말풍선도 아래에서 떠오르므로 방향이 같아 무대에서 한 덩어리로 보인다. */
+  .gauge {
+    flex: 1; min-height: 190px; width: 100%;
+    display: flex; align-items: stretch; justify-content: center; gap: 12px;
+    padding-top: 20px;                       /* «목표 100%» 라벨 자리 */
+  }
+  .gauge-scale {
+    display: flex; flex-direction: column; justify-content: space-between;
+    font-size: 11px; color: #6a6280; letter-spacing: 1px; text-align: right;
+  }
+  .gauge-bar { position: relative; width: 88px; flex: 0 0 88px; }
   .gauge-track {
-    height: 34px; background: #1c1730; border: 1px solid #322a4e;
-    border-radius: 18px; overflow: hidden; position: relative;
+    position: absolute; inset: 0;
+    background: #1c1730; border: 1px solid #322a4e;
+    border-radius: 44px; overflow: hidden;
+    display: flex; align-items: flex-end;    /* 채움을 바닥에 붙인다 */
   }
   .gauge-fill {
-    height: 100%; width: 0%; border-radius: 18px;
-    background: linear-gradient(90deg, #8a7038, var(--gold) 70%, #fff3d0);
+    width: 100%; height: 0%; border-radius: 44px;
+    background: linear-gradient(0deg, #8a7038, var(--gold) 70%, #fff3d0);
     box-shadow: 0 0 30px rgba(232,192,105,.55);
-    transition: width .5s cubic-bezier(.34,1.3,.64,1), background .3s;
+    transition: height .5s cubic-bezier(.34,1.3,.64,1), background .3s;
     position: relative;
   }
-  .gauge-fill::after {
-    content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 3px;
+  .gauge-fill::after {                        /* 수면 하이라이트 */
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
     background: #fff; opacity: .85; box-shadow: 0 0 14px #fff;
   }
-  .gauge-fill.drop { background: linear-gradient(90deg, #6b2b26, var(--red)); box-shadow: 0 0 30px rgba(216,72,63,.6); }
-  .gauge-goal {
-    position: absolute; top: -6px; bottom: -6px; right: 0; width: 2px;
-    background: var(--gold); opacity: .6;
+  .gauge-fill.drop { background: linear-gradient(0deg, #6b2b26, var(--red)); box-shadow: 0 0 30px rgba(216,72,63,.6); }
+  .gauge-goal {                               /* 목표선 = 기둥 맨 위 */
+    position: absolute; left: -12px; right: -12px; top: 0; height: 2px;
+    background: var(--gold); opacity: .6; z-index: 2;
   }
   .gauge-goal-lab {
-    position: absolute; right: -2px; top: -22px; font-size: 11px;
-    color: var(--gold); letter-spacing: 1px;
+    position: absolute; left: 50%; transform: translateX(-50%); top: -20px;
+    font-size: 11px; color: var(--gold); letter-spacing: 1px; white-space: nowrap;
   }
-  .gauge-legend { display: flex; justify-content: space-between; font-size: 11px; color: #6a6280; margin-top: 8px; letter-spacing: 1px; }
+  .gauge-legend { text-align: center; font-size: 12px; color: #6a6280; margin-top: 12px; letter-spacing: 1px; }
 
   /* 하단 */
   .hint { text-align: center; font-size: 12px; color: #6a6280; margin-top: 14px; letter-spacing: 1px; }
@@ -252,6 +270,9 @@
     .lobby h1 { font-size: 32px; }
     .pct { font-size: 60px; }
     .bubble-field { min-height: 150px; }
+    .stage-row { gap: 16px; }
+    .gauge-col { flex-basis: 150px; }
+    .gauge-bar { width: 62px; flex-basis: 62px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .gauge-fill, .join-fill, .ph-bar i { transition: none; }
@@ -291,17 +312,26 @@
 
     <!-- 복원율 게이지 무대 -->
     <div class="stage" id="stage" style="display:none">
-      <div class="bubble-field" id="bubbles"></div>
-      <div class="pct-row">
-        <div class="pct" id="pctNum">0</div>
-        <div class="pct-unit">%</div>
+      <div class="stage-row">
+        <div class="bubble-field" id="bubbles"></div>
+
+        <!-- 세로 복원율 게이지 -->
+        <div class="gauge-col">
+          <div class="pct-row">
+            <div class="pct" id="pctNum">0</div>
+            <div class="pct-unit">%</div>
+          </div>
+          <div class="pct-cap">말모이 원고 복원율</div>
+          <div class="gauge">
+            <div class="gauge-scale"><span>100%</span><span>50%</span><span>0%</span></div>
+            <div class="gauge-bar">
+              <div class="gauge-goal"><div class="gauge-goal-lab">목표 100%</div></div>
+              <div class="gauge-track"><div class="gauge-fill" id="gaugeFill"></div></div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="pct-cap">말 모 이 　 원 고 　 복 원 율</div>
-      <div class="gauge">
-        <div class="gauge-track"><div class="gauge-fill" id="gaugeFill"></div></div>
-        <div class="gauge-goal"><div class="gauge-goal-lab">목표 100%</div></div>
-      </div>
-      <div class="gauge-legend"><span>0%</span><span id="gaugeMsg">관객의 응답을 기다리는 중…</span><span>100%</span></div>
+      <div class="gauge-legend" id="gaugeMsg">관객의 응답을 기다리는 중…</div>
     </div>
 
     <div class="hint" id="hint">관객 접속 중… 화면을 클릭하면 작전 개시</div>
@@ -512,7 +542,7 @@ function shownPct() {
 function paintGauge() {
   const p = shownPct();
   $("pctNum").textContent = Math.round(p);
-  $("gaugeFill").style.width = p + "%";
+  $("gaugeFill").style.height = p + "%";   // 세로 기둥 — 아래에서 위로 찬다
 }
 
 /* ── 응답 1건 도착 ─────────────────────────────────────── */
