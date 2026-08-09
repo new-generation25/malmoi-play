@@ -163,6 +163,15 @@
   .ph-bar i { display: block; height: 100%; background: var(--gold); transition: width .3s; }
   .ph-q { font-size: 13px; color: #a79dc2; margin-bottom: 4px; line-height: 1.5; }
   .ph-d { font-size: 22px; color: var(--paper); font-weight: 700; margin-bottom: 18px; }
+  /* 사투리로 바꿔야 할 부분. 대본이 «밑줄친 문장»이라고 지시하는 곳이다 —
+     표시가 없으면 관객이 무엇을 바꿔 적어야 하는지 화면만 봐서는 모른다. */
+  .ph-d u { color: var(--gold); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+  .ph-hint {
+    font-size: 13px; color: var(--gold); letter-spacing: 3px;
+    background: #1e1a30; border: 1px dashed #4a3f6b; border-radius: 8px;
+    padding: 9px 12px; margin-bottom: 12px;
+  }
+  .ph-hint b { color: #8b849c; font-size: 11px; letter-spacing: 0; margin-right: 8px; }
   .ph-opts { display: flex; flex-direction: column; gap: 10px; }
   .ph-opt {
     background: #1e1a30; border: 1px solid #362f52; border-radius: 10px;
@@ -370,38 +379,53 @@ async function db(path, opts = {}) {
   return res;
 }
 
-/* ── 대본 2막 씬2 "경상도 말모이 작전" 문제 ─────────────── */
+/* ── 대본 2막 씬2 "경상도 말모이 작전" 문제 ───────────────
+   2026-08-08 대본 최신본에 맞춤. 고칠 때 대본과 어긋나기 쉬운 곳:
+
+   · 객관식은 선택지 4개다. 예전에 3개만 넣었다가 대본의 오답 하나씩이
+     통째로 빠져 있었다. 번호(①②③④)는 배열 길이를 따라간다.
+   · 연습문제의 오답은 «다른 지역» 사투리여야 한다. 예전에 «머라카노?»
+     «우짜라고?» 를 오답으로 뒀는데 둘 다 경상도 말이라, "경상도 방언인
+     것은?" 이라는 물음 자체가 성립하지 않았다.
+   · mark = 사투리로 바꿔야 할 부분(밑줄). 대본이 «밑줄친 문장» 이라고
+     지시하는 곳이다. dialect 안에 그대로 들어 있는 문자열이어야 한다.
+   · hint = 대본의 초성 힌트. */
 const QUESTIONS = [
-  { type: "연습", prompt: '"이건 뭐야?" 를 경상도 방언으로?',
+  { type: "연습", prompt: '"이건 뭐야?"를 경상도 방언인 것은?',
     dialect: "이건 뭐야?",
-    options: ["이기 뭐꼬?", "머라카노?", "우짜라고?"], answer: 0 },
+    options: ["이것이 뭐여?", "이그 뭐꽝?", "이거이 무사우꽈?", "이기 뭐꼬?"], answer: 3 },
 
   { type: "객관식", prompt: "다음 문장의 단어를 올바르게 해석한 것은?",
     dialect: "여기 볼 만한 거 천지빼까리다.",
-    options: ["여기 볼 만한 거 천원짜리 뿐이란다.", "여기 볼 만한 거 정말 많다.", "여기 볼 만한 거 종이가 빽빽하게 있다."], answer: 1 },
+    options: ["여기 볼 만한 거 천원짜리 뿐이란다.",
+              "여기 볼 만한 거 천 원짜리 입장료를 내야 한다.",
+              "여기 볼 만한 거 종이가 빽빽하게 있다.",
+              "여기 볼 만한 거 정말 많다."], answer: 3 },
 
   { type: "객관식", prompt: "다음 문장을 올바르게 해석한 것은?",
     dialect: "와이리 대노?",
-    options: ["왜 이렇게 힘드니?", "왜 이렇게 크게 화를 내니?", "왜 이렇게 기대니?"], answer: 0 },
+    options: ["왜 이렇게 힘드니?", "왜 이렇게 크게 화를 내니?",
+              "왜 이렇게 기대니?", "왜 이렇게 대답이 없니?"], answer: 0 },
 
   { type: "객관식", prompt: "다음 문장을 올바르게 해석한 것은?",
     dialect: "아버지, 여기 널짜주이소.",
-    options: ["아버지, 여기에 날짜를 좀 알려주세요.", "아버지, 여기에 놀게 해 주세요.", "아버지, 여기에 내려주세요."], answer: 2 },
+    options: ["아버지, 여기에 날짜를 좀 알려주세요.", "아버지, 여기에 놀게 해 주세요.",
+              "아버지, 여기에 내려주세요.", "아버지, 여기에 널빤지를 좀 깔아주세요."], answer: 2 },
 
-  { type: "주관식", prompt: "밑줄 친 말을 경상도 사투리로 적으시오.",
-    dialect: "철수 넘어진 거 보니 완전 고소하다.",
+  { type: "주관식", prompt: "다음 밑줄친 문장의 뜻을 경상도 사투리로 적으시오.",
+    dialect: "철수 넘어진 거 보니 완전 고소하다.", mark: "고소하다", hint: "ㄲ ㅅ ㄷ",
     answerText: "꼬시다", wrongPool: ["고시다", "꼬수다", "재밌다"] },
 
-  { type: "주관식", prompt: "밑줄 친 말을 경상도 사투리로 적으시오.",
-    dialect: "더운데 일하시느라 정말 수고많으셨습니다.",
+  { type: "주관식", prompt: "다음 밑줄친 문장의 뜻을 경상도 사투리로 적으시오.",
+    dialect: "더운데 일하시느라 정말 수고많으셨습니다.", mark: "수고많으셨습니다", hint: "ㅇ ㅂ ㅅ ㄴ ㄷ",
     answerText: "욕봤습니다", wrongPool: ["욕했습니다", "고생했데이", "수고했심더"] },
 
-  { type: "주관식", prompt: "밑줄 친 말을 경상도 사투리로 적으시오.",
-    dialect: "고등어 눈 상태를 보니 신선도가 별로다.",
+  { type: "주관식", prompt: "다음 밑줄친 문장의 뜻을 경상도 사투리로 적으시오.",
+    dialect: "고등어 눈 상태를 보니 신선도가 별로다.", mark: "별로다", hint: "ㅍ ㅇ ㄷ",
     answerText: "파이다", wrongPool: ["파했다", "비리다", "안좋다"] },
 
-  { type: "주관식", prompt: "밑줄 친 말을 경상도 사투리로 적으시오.",
-    dialect: "이 옷 얼룩지우려면 빡빡 문질러라.",
+  { type: "주관식", prompt: "다음 밑줄친 문장의 뜻을 경상도 사투리로 적으시오.",
+    dialect: "이 옷 얼룩지우려면 빡빡 문질러라.", mark: "문질러라", hint: "ㅁ ㄸ ㄹ",
     answerText: "문때라", wrongPool: ["문질라", "삐대라", "닦아라"] },
 ];
 
@@ -766,16 +790,27 @@ function nextQuestion() {
   else renderPhoneDone();
 }
 
+/* 선택지 번호. 예전엔 "①②③" 로 3개를 박아 두어, 대본대로 4번째 선택지를
+   넣자마자 «undefined 널빤지를…» 로 떴다. 배열 길이를 따라가게 한다. */
+const CIRCLED = "①②③④⑤⑥⑦⑧⑨";
+
+/* 사투리로 바꿔야 할 부분(q.mark)에 밑줄을 긋는다. mark가 없으면 문장 그대로. */
+function dialectHTML(q) {
+  if (!q.mark || !q.dialect.includes(q.mark)) return q.dialect;
+  return q.dialect.replace(q.mark, `<u>${q.mark}</u>`);
+}
+
 function renderPhoneQuestion() {
   const q = QUESTIONS[qi];
   const head = `
     <div class="ph-top">문제 ${qi + 1} / ${QUESTIONS.length} · ${q.type}</div>
     <div class="ph-bar"><i style="width:${qi / QUESTIONS.length * 100}%"></i></div>
     <div class="ph-q">${q.prompt}</div>
-    <div class="ph-d">${q.dialect}</div>`;
+    <div class="ph-d">${dialectHTML(q)}</div>`;
 
   if (q.type === "주관식") {
-    $("phone").innerHTML = head + `
+    $("phone").innerHTML = head +
+      (q.hint ? `<div class="ph-hint"><b>힌트</b>${q.hint}</div>` : "") + `
       <input class="ph-input" id="phInput" placeholder="경상도 사투리로 입력" autocomplete="off">
       <button class="ph-send" id="phSend">제출 (수정 불가)</button>
       <div class="ph-warn">답을 입력 후 수정이 어렵습니다.<br>신중히 답해 주시길 바라겠습니다.</div>`;
@@ -794,7 +829,7 @@ function renderPhoneQuestion() {
   } else {
     $("phone").innerHTML = head + `
       <div class="ph-opts">${q.options.map((o, i) =>
-        `<div class="ph-opt" data-i="${i}"><b>${"①②③"[i]}</b> ${o}</div>`).join("")}</div>`;
+        `<div class="ph-opt" data-i="${i}"><b>${CIRCLED[i] || i + 1}</b> ${o}</div>`).join("")}</div>`;
     let locked = false;
     $("phone").querySelectorAll(".ph-opt").forEach(el => {
       el.onclick = () => {
