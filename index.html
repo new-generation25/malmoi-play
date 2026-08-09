@@ -77,19 +77,24 @@
     display: flex; flex-direction: column; align-items: center; min-height: 0;
   }
 
-  /* 물방울이 떠오르는 영역 — 무대 전체를 뒷배경으로 쓴다 */
+  /* 응답이 떠오르는 영역 — 무대 전체를 뒷배경으로 쓴다.
+     ⚠ 여기에 «답»을 절대 적지 않는다. 관객마다 푸는 속도가 달라서, 무대에
+     정답 글자가 떠 있으면 아직 못 푼 사람이 무대만 보고 답을 알아 버린다.
+     응답이 «도착했다»는 사실만 빛 알갱이로 보여준다. */
   .bubble-field { position: absolute; inset: 0; overflow: hidden; }
   .bubble {
     position: absolute; bottom: 0;
-    padding: 7px 14px; border-radius: 16px 16px 16px 4px;
-    background: rgba(122,104,184,.22);
-    border: 1px solid rgba(232,192,105,.35);
-    color: #ded5f0; font-size: 13px; white-space: nowrap;
-    backdrop-filter: blur(2px);
+    width: 15px; height: 15px; border-radius: 50%;
+    background: rgba(122,104,184,.3);
+    border: 1px solid rgba(184,176,204,.45);
+    box-shadow: 0 0 14px rgba(122,104,184,.35);
     animation: rise 2.6s ease-out forwards;
     pointer-events: none;
   }
-  .bubble.hit { background: rgba(232,192,105,.24); border-color: var(--gold); color: var(--gold); font-weight: 700; }
+  .bubble.hit {
+    background: rgba(232,192,105,.55); border-color: var(--gold);
+    box-shadow: 0 0 22px rgba(232,192,105,.75);
+  }
   @keyframes rise {
     0%   { transform: translateY(0) scale(.4); opacity: 0; }
     14%  { transform: translateY(-14px) scale(1.12); opacity: 1; }
@@ -236,16 +241,13 @@
   /* ===== 랜딩 — QR로 막 들어온 관객이 처음 보는 화면 =====
      그림이든 하단 버튼이든 누르면 시작한다. 엄지가 화면 어디에 있든
      걸리도록 두 군데를 다 열어 둔다. */
-  .ph-landing { justify-content: center; align-items: center; }
+  .ph-landing { justify-content: center; align-items: stretch; }
   .ph-art {
     display: block; width: 100%; padding: 0; border: 0; background: none;
     border-radius: 16px; overflow: hidden; line-height: 0; cursor: pointer;
     min-height: 0; -webkit-tap-highlight-color: transparent;
   }
-  /* 세로로 긴 그림이라 폭이 아니라 «높이»로 맞춘다. 폭에 맞추면 화면을
-     넘겨 하단 버튼을 밀어낸다. width/height 속성을 함께 둬서 로드 전에도
-     자리를 차지하게 한다(그림이 뜨는 순간 버튼이 튀는 것을 막는다). */
-  .ph-art img { width: auto; max-width: 100%; height: auto; max-height: 46vh; object-fit: contain; display: block; margin: 0 auto; }
+  .ph-art img { width: 100%; height: auto; max-height: 46vh; object-fit: contain; display: block; margin: 0 auto; }
   .ph-art:active { transform: scale(.99); }
   .ph-lead { text-align: center; color: #8b849c; line-height: 1.7; font-size: 13px; margin-top: 16px; }
   .ph-lead b { color: var(--gold); }
@@ -348,8 +350,16 @@
   body.phone-only .ph-input { font-size: 18px; padding: 17px; border-radius: 14px; }
   body.phone-only .ph-send { font-size: 18px; padding: 18px; border-radius: 14px; margin-top: 0; }
   body.phone-only .ph-warn { font-size: 12px; margin-top: 14px; }
+  /* 랜딩 그림은 남는 세로 공간을 전부 쓰고 좌우 끝까지 붙인다.
+     cover 라 가장자리가 조금 잘리지만, 그림 주인공이 가운데라 문제되지 않는다.
+     contain 으로 두면 위아래에 검은 띠가 생겨 «꽉 찬» 느낌이 사라진다. */
+  body.phone-only .ph-body.ph-landing { padding: 0; }
+  body.phone-only .ph-landing .ph-art { flex: 1 1 auto; border-radius: 0; }
+  body.phone-only .ph-landing .ph-art img {
+    width: 100%; height: 100%; max-height: none; object-fit: cover;
+  }
+  body.phone-only .ph-landing .ph-lead { flex: 0 0 auto; padding: 0 20px 18px; margin-top: 14px; }
   body.phone-only .ph-lead { font-size: 15px; }
-  body.phone-only .ph-art img { max-height: 50vh; max-height: 50dvh; }
   body.phone-only .ph-done { font-size: 16px; gap: 14px; }
   body.phone-only .ph-done .big { font-size: 54px; }
 
@@ -665,11 +675,11 @@ function pulse(el, cls, ms) {
 /* ── 응답 1건 도착 ───────────────────────────────────────
    참여퀴즈창에서 관객이 한 문제 풀 때마다 여기로 온다(폴링이 물어 온다).
    무대에서는 «말풍선 + 기둥 출렁 + 숫자 튐 + 소리» 네 가지가 같이 난다. */
-function addAnswer(text, hit) {
+function addAnswer(hit) {
   answered++;
   $("answeredNum").textContent = "응답 " + answered;
   paintGauge();
-  popBubble(text, hit);
+  popBubble(hit);
 
   if (!$("gaugeFill").classList.contains("drop")) pulse($("gaugeFill"), "surge", 450);
   pulse($("pctNum"), "bump", 350);
@@ -685,13 +695,13 @@ function addAnswer(text, hit) {
 
 /* ── 말풍선 뿅 ─────────────────────────────────────────── */
 const BUBBLE_MAX = 14;                 // 400건이 다 떠오르면 화면이 죽는다
-function popBubble(text, hit) {
+function popBubble(hit) {
   const field = $("bubbles");
   if (field.childElementCount >= BUBBLE_MAX) return;
   const b = document.createElement("div");
   b.className = "bubble" + (hit ? " hit" : "");
-  b.textContent = text;
-  b.style.left = (4 + Math.random() * 78) + "%";
+  /* 답 글자는 넣지 않는다 — 무대가 정답을 흘리면 안 된다 */
+  b.style.left = (4 + Math.random() * 92) + "%";
   b.style.animationDelay = (Math.random() * .12) + "s";
   field.appendChild(b);
   setTimeout(() => b.remove(), 2900);
@@ -765,7 +775,7 @@ async function poll() {
     const rows = await r.json();
     for (const row of rows) {
       lastId = Math.max(lastId, row.id);
-      if (phase === "play") addAnswer(row.text || "…", !!row.hit);
+      if (phase === "play") addAnswer(!!row.hit);   // row.text 는 무대에 쓰지 않는다
       else { answered++; $("answeredNum").textContent = "응답 " + answered; }
     }
     if (phase === "play" && !rows.length) paintGauge();
@@ -798,19 +808,10 @@ function scheduleCrowd() {
     for (let k = 0; k < QUESTIONS.length; k++) {
       t += 700 + Math.random() * 2600;              // 한 문제당 걸리는 시간
       const q = QUESTIONS[k];
-      later(() => {
-        const hit = Math.random() < 0.62;
-        const text = hit ? correctTextOf(q) : wrongTextOf(q);
-        addAnswer(text, hit);
-      }, t);
+      later(() => addAnswer(Math.random() < 0.62), t);   // 정답률 62%
     }
   }
 }
-const correctTextOf = q => q.type === "주관식" ? q.answerText : q.options[q.answer];
-const wrongTextOf = q => {
-  const pool = q.type === "주관식" ? q.wrongPool : q.options.filter((_, i) => i !== q.answer);
-  return pool[Math.floor(Math.random() * pool.length)];
-};
 
 /* ── 순사 방해: 스크린 클릭 1회 ────────────────────────── */
 function sabotage() {
@@ -921,7 +922,7 @@ async function joinLive() {
 }
 
 async function sendAnswer(text, hit) {
-  if (!LIVE) { addAnswer(text, hit); return; }   // 미설정이면 로컬 집계로 대체
+  if (!LIVE) { addAnswer(hit); return; }         // 미설정이면 로컬 집계로 대체
   try {
     await db("answers", {
       method: "POST",
