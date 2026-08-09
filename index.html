@@ -6,27 +6,43 @@
      데스크톱 폭(980px)으로 렌더한 뒤 통째로 축소해서, 글씨를 아무리 키워도
      작게 보인다. viewport-fit=cover 는 노치 단말에서 화면을 끝까지 쓰기 위한 것. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#12101c">
+<meta name="theme-color" content="var(--surface)">
 <title>말모이 작전 — 관객참여 퀴즈 데모</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* ===== 밝은 테마 — 핑크 + 밝은 하늘색 =====
+     메인퀴즈창·참여퀴즈창이 같은 색을 쓴다. 색은 전부 여기서만 정하고
+     아래에서는 변수만 부른다 — 한 곳을 고치면 두 화면이 같이 바뀐다. */
   :root {
-    /* 기본(참여퀴즈창) — 금색 계열. 무대는 아래 body.stage 에서 갈아 끼운다. */
-    --gold: #e8c069;
-    --gold-dim: #8a7038;
-    --gold-lite: #fff3d0;      /* 하이라이트(수면·반짝임) */
-    --accent2: #c9a24f;        /* 보조색 — 게이지 아랫단·접속 바 */
-    --glow: 232, 192, 105;     /* rgba() 로 쓰는 발광색 */
-    --glow-lite: 255, 244, 214;/* 응답 도착 때 확 밝아지는 색 */
-    --ink: #0d0b12;
-    --paper: #f4ecd8;
-    --red: #d8483f;
-    --green: #4bbf73;
+    --gold: #ff4f9d;           /* 주색 핑크 — 제목·숫자·강조 */
+    --gold-dim: #d0699a;
+    --gold-lite: #ffd6e8;      /* 하이라이트(수면·반짝임) */
+    --accent2: #2fb4ff;        /* 보조색 하늘 — 게이지 아랫단·접속 바 */
+    --glow: 255, 79, 157;      /* rgba() 로 쓰는 발광색 */
+    --glow-lite: 255, 214, 232;/* 응답 도착 때 확 밝아지는 색 */
+
+    --bg1: #fff1f7;            /* 바탕 — 위쪽 연분홍 */
+    --bg2: #eaf6ff;            /* 바탕 — 아래쪽 연하늘 */
+    --surface: #ffffff;        /* 카드·게이지 기둥·입력칸 */
+    --surface-2: #f4f8fd;      /* 살짝 눌린 면 */
+    --line: #dfe7f2;           /* 테두리 */
+    --line-2: #f4bcd6;         /* 강조 테두리(핑크) */
+
+    --text: #33283a;           /* 본문 */
+    --text-dim: #6b6076;       /* 보조 */
+    --text-faint: #9a90a6;     /* 더 흐림 */
+    --on-accent: #ffffff;      /* 핑크 위에 얹는 글자 */
+
+    --ink: #33283a;            /* 옛 이름 유지 — 어두운 글자 */
+    --paper: #33283a;          /* 옛 이름 유지 — 본문 글자 */
+    --red: #e0453c;
+    --green: #2aa86a;
   }
   body {
     font-family: "Pretendard", "Malgun Gothic", "맑은 고딕", sans-serif;
-    background: radial-gradient(ellipse at 50% 0%, #241d33 0%, var(--ink) 70%);
-    color: var(--paper);
+    background: linear-gradient(170deg, var(--bg1) 0%, var(--bg2) 100%);
+    background-attachment: fixed;
+    color: var(--text);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -40,7 +56,7 @@
   /* ===== 무대 스크린 ===== */
   .screen {
     flex: 1;
-    background: linear-gradient(180deg, #17132a 0%, #0e0a18 100%);
+    background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
     border: 2px solid var(--gold-dim);
     border-radius: 14px;
     padding: 26px 30px;
@@ -58,19 +74,19 @@
   }
   .topbar { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
   .title { font-size: 15px; color: var(--gold); letter-spacing: 4px; }
-  .counter { font-size: 13px; color: #8b849c; }
+  .counter { font-size: 13px; color: var(--text-dim); }
 
   /* 접속 인원 */
   .join { display: flex; align-items: center; gap: 12px; margin: 12px 0 8px; }
-  .join-num { font-size: 13px; color: #b8b0cc; white-space: nowrap; }
+  .join-num { font-size: 13px; color: var(--text-dim); white-space: nowrap; }
   .join-num b { color: var(--gold); font-size: 20px; }
-  .join-track { flex: 1; height: 6px; background: #241f38; border-radius: 3px; overflow: hidden; }
+  .join-track { flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
   .join-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent2), var(--gold)); transition: width .25s ease-out; }
 
   /* 로비 */
   .lobby { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 18px; }
   .lobby h1 { font-size: 42px; color: var(--gold); letter-spacing: 6px; text-shadow: 0 0 30px rgba(var(--glow),.4); }
-  .lobby p { color: #9d94b5; line-height: 1.8; font-size: 15px; }
+  .lobby p { color: var(--text-faint); line-height: 1.8; font-size: 15px; }
   .qr-box { background: #fff; padding: 14px; border-radius: 10px; box-shadow: 0 0 40px rgba(var(--glow),.25); }
   .qr-url { font-size: 13px; color: var(--gold); letter-spacing: 1px; }
 
@@ -90,9 +106,9 @@
   .bubble {
     position: absolute; bottom: 0;
     width: 15px; height: 15px; border-radius: 50%;
-    background: rgba(122,104,184,.3);
-    border: 1px solid rgba(184,176,204,.45);
-    box-shadow: 0 0 14px rgba(122,104,184,.35);
+    background: rgba(47,180,255,.28);
+    border: 1px solid rgba(47,180,255,.55);
+    box-shadow: 0 0 14px rgba(47,180,255,.35);
     animation: rise 2.6s ease-out forwards;
     pointer-events: none;
   }
@@ -116,7 +132,7 @@
     font-variant-numeric: tabular-nums;
   }
   .pct-unit { font-size: 30px; font-weight: 700; color: var(--gold-dim); padding-bottom: 8px; }
-  .pct-cap { text-align: center; font-size: 13px; color: #8b849c; letter-spacing: 3px; margin-bottom: 10px; }
+  .pct-cap { text-align: center; font-size: 13px; color: var(--text-dim); letter-spacing: 3px; margin-bottom: 10px; }
 
   /* 메인 게이지 — 세로 기둥. 원고가 «차오르는» 것으로 읽히도록 아래에서 위로 찬다.
      말풍선도 아래에서 떠오르므로 방향이 같아 무대에서 한 덩어리로 보인다. */
@@ -130,12 +146,12 @@
   .gauge-scale {
     position: absolute; top: 20px; bottom: 0; right: calc(50% + 56px);
     display: flex; flex-direction: column; justify-content: space-between;
-    font-size: 11px; color: #6a6280; letter-spacing: 1px; text-align: right;
+    font-size: 11px; color: var(--text-faint); letter-spacing: 1px; text-align: right;
   }
   .gauge-bar { position: relative; width: 88px; flex: 0 0 88px; }
   .gauge-track {
     position: absolute; inset: 0;
-    background: #1c1730; border: 1px solid #322a4e;
+    background: var(--surface-2); border: 1px solid var(--line);
     border-radius: 44px; overflow: hidden;
     display: flex; align-items: flex-end;    /* 채움을 바닥에 붙인다 */
   }
@@ -150,7 +166,7 @@
     content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
     background: #fff; opacity: .85; box-shadow: 0 0 14px #fff;
   }
-  .gauge-fill.drop { background: linear-gradient(0deg, #6b2b26, var(--red)); box-shadow: 0 0 30px rgba(216,72,63,.6); }
+  .gauge-fill.drop { background: linear-gradient(0deg, #ffb3a8, var(--red)); box-shadow: 0 0 30px rgba(216,72,63,.6); }
   /* 응답 1건이 도착할 때마다 기둥이 «출렁» 한다. 게이지가 조금씩 오르는 것만으로는
      멀리서 변화가 안 보여, 도착 자체를 눈에 띄게 만든다. */
   @keyframes surge {
@@ -169,22 +185,22 @@
     position: absolute; left: 50%; transform: translateX(-50%); top: -20px;
     font-size: 11px; color: var(--gold); letter-spacing: 1px; white-space: nowrap;
   }
-  .gauge-legend { text-align: center; font-size: 12px; color: #6a6280; margin-top: 12px; letter-spacing: 1px; }
+  .gauge-legend { text-align: center; font-size: 12px; color: var(--text-faint); margin-top: 12px; letter-spacing: 1px; }
 
   /* 하단 */
-  .hint { text-align: center; font-size: 12px; color: #6a6280; margin-top: 14px; letter-spacing: 1px; }
+  .hint { text-align: center; font-size: 12px; color: var(--text-faint); margin-top: 14px; letter-spacing: 1px; }
   .verdict {
     position: absolute; inset: 0; display: none;
     align-items: center; justify-content: center; flex-direction: column; gap: 12px;
-    background: radial-gradient(circle, rgba(var(--glow),.18), rgba(13,11,18,.92));
+    background: radial-gradient(circle, rgba(var(--glow),.18), rgba(255,255,255,.9));
     font-size: 60px; color: var(--gold); font-weight: 800; letter-spacing: 8px;
     text-shadow: 0 0 40px rgba(var(--glow),.8);
     animation: pop .5s ease-out;
     pointer-events: none;
   }
   .verdict.show { display: flex; }
-  .verdict.bad { background: radial-gradient(circle, rgba(216,72,63,.3), rgba(13,11,18,.94)); color: var(--red); text-shadow: 0 0 40px rgba(216,72,63,.8); }
-  .verdict .sub { font-size: 16px; letter-spacing: 2px; color: #b8b0cc; font-weight: 400; text-shadow: none; }
+  .verdict.bad { background: radial-gradient(circle, rgba(216,72,63,.3), rgba(255,255,255,.9)); color: var(--red); text-shadow: 0 0 40px rgba(216,72,63,.8); }
+  .verdict .sub { font-size: 16px; letter-spacing: 2px; color: var(--text-dim); font-weight: 400; text-shadow: none; }
   @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
   /* 축포 — 100% 달성 순간. 조각은 JS가 만들고 Web Animations 로 날린다
@@ -201,12 +217,12 @@
 
   /* ===== 폰 목업 ===== */
   .phone-side { width: 290px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-  .phone-side .cap { font-size: 11px; color: #6a6280; letter-spacing: 2px; }
+  .phone-side .cap { font-size: 11px; color: var(--text-faint); letter-spacing: 2px; }
   .phone {
     width: 270px; height: 560px;
-    background: #12101c; border: 8px solid #2a2540; border-radius: 34px;
+    background: var(--surface); border: 8px solid var(--line-2); border-radius: 34px;
     padding: 18px 14px; display: flex; flex-direction: column;
-    box-shadow: 0 20px 50px rgba(0,0,0,.6);
+    box-shadow: 0 20px 50px rgba(140,110,140,.18);
   }
   /* 상단(진행표시) · 본문(스크롤) · 하단(버튼) 3단.
      버튼을 본문에 두면 폰에서 키보드가 올라올 때 화면 밖으로 밀린다. */
@@ -214,38 +230,38 @@
   .ph-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
   .ph-foot { flex: 0 0 auto; }
 
-  .ph-top { font-size: 10px; color: #6a6280; text-align: center; letter-spacing: 2px; margin-bottom: 12px; }
-  .ph-bar { height: 3px; background: #241f38; border-radius: 2px; margin-bottom: 14px; overflow: hidden; }
+  .ph-top { font-size: 10px; color: var(--text-faint); text-align: center; letter-spacing: 2px; margin-bottom: 12px; }
+  .ph-bar { height: 3px; background: var(--line); border-radius: 2px; margin-bottom: 14px; overflow: hidden; }
   .ph-bar i { display: block; height: 100%; background: var(--gold); transition: width .3s; }
-  .ph-q { font-size: 13px; color: #a79dc2; margin-bottom: 4px; line-height: 1.5; }
+  .ph-q { font-size: 13px; color: var(--text-dim); margin-bottom: 4px; line-height: 1.5; }
   .ph-d { font-size: 22px; color: var(--paper); font-weight: 700; margin-bottom: 18px; }
   /* 사투리로 바꿔야 할 부분. 대본이 «밑줄친 문장»이라고 지시하는 곳이다 —
      표시가 없으면 관객이 무엇을 바꿔 적어야 하는지 화면만 봐서는 모른다. */
   .ph-d u { color: var(--gold); text-decoration-thickness: 2px; text-underline-offset: 4px; }
   .ph-hint {
     font-size: 13px; color: var(--gold); letter-spacing: 3px;
-    background: #1e1a30; border: 1px dashed #4a3f6b; border-radius: 8px;
+    background: var(--surface-2); border: 1px dashed var(--line-2); border-radius: 8px;
     padding: 9px 12px; margin-bottom: 12px;
   }
-  .ph-hint b { color: #8b849c; font-size: 11px; letter-spacing: 0; margin-right: 8px; }
+  .ph-hint b { color: var(--text-dim); font-size: 11px; letter-spacing: 0; margin-right: 8px; }
   .ph-opts { display: flex; flex-direction: column; gap: 10px; }
   .ph-opt {
-    background: #1e1a30; border: 1px solid #362f52; border-radius: 10px;
-    padding: 12px; font-size: 13px; color: #cfc6e0; cursor: pointer; line-height: 1.4;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px; font-size: 13px; color: var(--text); cursor: pointer; line-height: 1.4;
     transition: all .15s;
   }
   /* 터치 단말에서는 :hover 가 «눌린 채로» 남는다. 마우스가 있을 때만 건다. */
   @media (hover: hover) { .ph-opt:hover { border-color: var(--gold-dim); } }
   .ph-opt:active { transform: scale(.985); }
-  .ph-opt.ok { background: var(--gold); color: #17131f; border-color: var(--gold); font-weight: 700; }
-  .ph-opt.no { background: #4a1f1c; border-color: var(--red); color: #ffb9b4; }
+  .ph-opt.ok { background: var(--gold); color: var(--on-accent); border-color: var(--gold); font-weight: 700; }
+  .ph-opt.no { background: #ffe9e6; border-color: var(--red); color: #b3271c; }
   .ph-input {
-    width: 100%; background: #1e1a30; border: 1px solid #362f52; border-radius: 10px;
+    width: 100%; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
     padding: 14px; font-size: 16px; color: var(--paper); font-family: inherit;
   }
   .ph-send {
     margin-top: 12px; width: 100%; padding: 13px; border: none; border-radius: 10px;
-    background: var(--gold); color: #17131f; font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit;
+    background: var(--gold); color: var(--on-accent); font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit;
   }
   .ph-send:disabled { opacity: .35; cursor: default; }
   /* ===== 랜딩 — QR로 막 들어온 관객이 처음 보는 화면 =====
@@ -259,43 +275,31 @@
   }
   .ph-art img { width: 100%; height: auto; max-height: 46vh; object-fit: contain; display: block; margin: 0 auto; }
   .ph-art:active { transform: scale(.99); }
-  .ph-lead { text-align: center; color: #8b849c; line-height: 1.7; font-size: 13px; margin-top: 16px; }
+  .ph-lead { text-align: center; color: var(--text-dim); line-height: 1.7; font-size: 13px; margin-top: 16px; }
   .ph-lead b { color: var(--gold); }
 
-  .ph-done { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10px; color: #8b849c; font-size: 13px; line-height: 1.7; }
+  .ph-done { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10px; color: var(--text-dim); font-size: 13px; line-height: 1.7; }
   .ph-done .big { font-size: 34px; }
-  .ph-warn { font-size: 10px; color: #6a6280; margin-top: 10px; line-height: 1.5; }
+  .ph-warn { font-size: 10px; color: var(--text-faint); margin-top: 10px; line-height: 1.5; }
 
   /* ===== 무대 스크린 모드 (/ — 진행자) =====
      관객은 각자 폰으로 들어오므로 무대에 폰 목업을 띄울 이유가 없다. */
   body.stage .phone-side { display: none; }
 
-  /* 무대 색 — 핑크 + 밝은 하늘색.
-     변수만 갈아 끼우므로 참여퀴즈창(관객 폰)은 금색 그대로다.
-     body.embed 에도 stage 클래스가 함께 붙으므로 Q-Studio 출력창에도 적용된다.
-     배경은 어둡게 둔다 — 프로젝터에서 밝은 바탕은 객석을 덮고 글씨가 뜨지 않는다. */
-  body.stage {
-    --gold: #ff8fc4;         /* 핑크 — 제목·숫자·목표선 */
-    --gold-dim: #8d5673;
-    --gold-lite: #ffe4f1;    /* 수면 하이라이트 */
-    --accent2: #7fd4ff;      /* 밝은 하늘색 — 게이지 아랫단·접속 바 */
-    --glow: 255, 143, 196;
-    --glow-lite: 255, 228, 241;
-  }
 
   /* 진행자 조작 바 — 프로젝션 밖(화면 맨 아래)에 두고 H로 숨긴다 */
   #opbar {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
     display: none; gap: 18px; align-items: center; flex-wrap: wrap;
-    background: rgba(0,0,0,.88); border-top: 1px solid #2c2c31;
-    color: #c9c9d1; font-size: 13px; padding: 7px 14px; line-height: 1.6;
+    background: rgba(255,255,255,.94); border-top: 1px solid var(--line);
+    color: var(--text); font-size: 13px; padding: 7px 14px; line-height: 1.6;
   }
   body.stage #opbar { display: flex; }
   #opbar.off { display: none; }
   #opbar b { color: var(--gold); }
   #opbar b.ok { color: var(--green); }
   #opbar b.warn { color: var(--red); }
-  #opbar .k { color: #6e6e77; margin-left: auto; }
+  #opbar .k { color: var(--text-faint); margin-left: auto; }
 
   /* ===== Q-Studio 임베드 모드 (출력창 iframe · 1920×1080) =====
      프로젝터에는 가장자리까지 꽉 차야 한다. 데모용 카드 테두리·바깥 여백·
@@ -351,13 +355,13 @@
   }
   body.phone-only .ph-head {
     padding: calc(14px + env(safe-area-inset-top)) 20px 12px;
-    border-bottom: 1px solid #241f38;
+    border-bottom: 1px solid var(--line);
   }
   body.phone-only .ph-body { padding: 22px 20px 26px; }
   /* 하단 버튼 — 엄지가 닿는 자리에 고정한다. 홈 인디케이터를 피해 여백을 준다. */
   body.phone-only .ph-foot {
     padding: 12px 20px calc(14px + env(safe-area-inset-bottom));
-    border-top: 1px solid #241f38; background: #12101c;
+    border-top: 1px solid var(--line); background: var(--surface);
   }
 
   /* 어두운 객석에서 서서 한 손으로 본다는 전제로 키운다 */
@@ -989,9 +993,9 @@ function finish() {
         ? "여러분의 입이 원고를 전부 되살렸습니다."
         : `나머지 ${100 - p}%는… 여러분의 입으로 이어 주십시오.`}<br>
       와우, 여러분은 경상도 토박이시군요!<br><br>
-      <span style="font-size:14px;color:#6a6280">— 이어서 「경상도 노래부르기 작전」으로 —</span>
+      <span style="font-size:14px;color:var(--text-faint)">— 이어서 「경상도 노래부르기 작전」으로 —</span>
     </p>
-    ${EMBEDDED ? "" : `<p style="font-size:12px;color:#6a6280">클릭하면 처음부터 다시</p>`}`;
+    ${EMBEDDED ? "" : `<p style="font-size:12px;color:var(--text-faint)">클릭하면 처음부터 다시</p>`}`;
   fanfare();
   $("phone").innerHTML = `<div class="ph-body"><div class="ph-done"><div class="big">🏮</div>작전 완료!<br>고맙습니데이~</div></div>`;
 }
@@ -1042,7 +1046,7 @@ function renderPhoneLobby() {
       <div class="ph-lead">
         접속 완료!<br>
         <b>그림이나 아래 버튼</b>을 누르면 시작합니다.<br>
-        <span style="font-size:.85em;color:#5d566f">순사에게 들키지 않도록 조용히 수행해 주세요</span>
+        <span style="font-size:.85em;color:var(--text-faint)">순사에게 들키지 않도록 조용히 수행해 주세요</span>
       </div>
     </div>
     <div class="ph-foot"><button class="ph-send" id="phStart">작전 시작</button></div>`;
@@ -1165,7 +1169,7 @@ function phoneFinish() {
         <b style="color:var(--gold);font-size:1.5em">작전 성공!</b><br>
         말모이 원고를 <b style="color:var(--gold)">100%</b> 되찾았습니다.<br>
         여러분의 입이 원고를 전부 되살렸습니다.<br>
-        <span style="font-size:.85em;color:#5d566f">고맙습니데이~<br>무대 화면을 봐 주세요</span>
+        <span style="font-size:.85em;color:var(--text-faint)">고맙습니데이~<br>무대 화면을 봐 주세요</span>
       </div>
     </div>`;
   confetti();
@@ -1178,7 +1182,7 @@ function renderPhoneDone() {
       <div class="ph-done">
         <div class="big">✍️</div>
         ${QUESTIONS.length}문제 모두 응답했습니다.<br>
-        <span style="font-size:.8em;color:#5d566f">무대 화면을 봐 주세요.<br>원고가 채워지고 있습니다…</span>
+        <span style="font-size:.8em;color:var(--text-faint)">무대 화면을 봐 주세요.<br>원고가 채워지고 있습니다…</span>
       </div>
     </div>`;
 }
