@@ -119,6 +119,7 @@
 | `README.md` | 운영자용 사용 설명 |
 | `SETUP.md` | Supabase 설정 (SQL 포함) |
 | `STAGE-SCREEN.md` | 무대 스크린 설계 문서 (다른 프로젝트 이식용) |
+| `TTS-VOICE.md` | 대본 TTS 음성 제작 인수인계 (이 문서와 별개 작업선) |
 
 `덕이아란_DM.pptx`(디자인 원본)는 대용량 바이너리라 `.gitignore`로 제외했다. 로컬에만 있다.
 

@@ -16,3 +16,6 @@ desktop.ini
 
 # 단독 실행 데모(빌드 산출물)
 demo.html
+
+# 카드 편집기 검증용 이미지(대용량 · 원본은 Downloads/image-generator에 있음)
+tools/samples/

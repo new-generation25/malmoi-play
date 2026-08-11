@@ -76,6 +76,7 @@ npx serve . -l 4321      # http://localhost:4321
 | 문서 | 용도 |
 | --- | --- |
 | `HANDOVER.md` | **인수인계 — 가장 먼저 읽을 것.** 미완 작업·조작법·검증 현황·위험 |
+| `TTS-VOICE.md` | 인수인계 — 대본 TTS 음성 제작. 웹 연출과 별개 작업선 |
 | `SETUP.md` | Supabase 설정 (테이블 생성 SQL 포함) |
 | `STAGE-SCREEN.md` | 무대 스크린 설계 문서. 다른 프로젝트로 이식할 때 |
 | `README.md` | 운영자용 사용 설명 |
