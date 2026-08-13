@@ -195,6 +195,50 @@
      ⚠ 여기에 «답»을 절대 적지 않는다. 관객마다 푸는 속도가 달라서, 무대에
      정답 글자가 떠 있으면 아직 못 푼 사람이 무대만 보고 답을 알아 버린다.
      응답이 «도착했다»는 사실만 빛 알갱이로 보여준다. */
+  /* ===== 우리말 모으기 — 무대 (2026-08-13) =====
+     왼쪽 빙고판 · 오른쪽 낱말 벽. 4:3 스크린에서 세로가 넉넉하므로 좌우로
+     갈라 둘 다 크게 보여준다. 크기는 전부 vh 다 — 프로젝터 해상도가 바뀌어도
+     비율이 유지되어야 한다(10-3 규칙). */
+  .words { flex: 1; display: flex; gap: 3vh; align-items: stretch; min-height: 0; }
+  .sw-left  { flex: 0 0 46%; display: flex; flex-direction: column; gap: 1.6vh; min-height: 0; }
+  .sw-right { flex: 1; display: flex; flex-direction: column; gap: 1.6vh; min-height: 0; }
+  .sw-cap { font-size: 2.6vh; letter-spacing: .5vh; text-align: center; }
+  .sw-board {
+    flex: 1; display: grid; grid-template-columns: repeat(6, 1fr);
+    grid-auto-rows: 1fr; gap: .8vh; min-height: 0;
+  }
+  /* 아직 안 켜진 칸 — 꺼진 네온관처럼 어둡게 두되 «칸이 있다» 는 것은 보이게 */
+  .sw-cell {
+    display: flex; align-items: center; justify-content: center;
+    border: .2vh solid rgba(28,134,168,.55); border-radius: .9vh;
+    background: rgba(0,0,0,.28); color: rgba(214,236,247,.30);
+    font-size: 3.4vh; font-weight: 700; transition: all .35s ease;
+  }
+  /* 켜진 칸 — 관객이 보낸 말에 그 글자가 들어 있었다 */
+  .sw-cell.lit {
+    color: var(--on-accent); background: var(--gold); border-color: var(--gold);
+    box-shadow: 0 0 2.4vh rgba(var(--glow),.75);
+  }
+  .sw-cell.just { animation: wdpop .5s ease; }
+  @keyframes wdpop { 0% { transform: scale(1); } 40% { transform: scale(1.22); } 100% { transform: scale(1); } }
+  /* 사석 — 어느 낱말에도 없는 글자라 영영 켜지지 않는다. 더 어둡게 눌러 둔다 */
+  .sw-cell.dead { opacity: .34; }
+  .sw-count { font-size: 2.2vh; color: var(--text-faint); text-align: center; }
+  .sw-count b { color: var(--gold); font-size: 3vh; }
+  /* 낱말 벽 — 새 말이 위에서 내려와 쌓인다. 넘치면 아래로 흘러 사라진다 */
+  .sw-wall {
+    flex: 1; display: flex; flex-wrap: wrap; align-content: flex-start;
+    gap: .9vh; overflow: hidden; min-height: 0; padding: .4vh;
+  }
+  .sw-word {
+    font-size: 2.8vh; font-weight: 700; padding: .8vh 1.6vh; border-radius: 99vh;
+    background: rgba(34,224,240,.16); border: .2vh solid var(--cyan); color: var(--text);
+    animation: wdin .45s ease both;
+  }
+  @keyframes wdin { from { opacity: 0; transform: translateY(-1.6vh) scale(.9); } to { opacity: 1; transform: none; } }
+  /* 판을 켠 말은 마젠타로 — «이 말이 글자를 되찾았다» */
+  .sw-word.hit { background: rgba(var(--glow),.20); border-color: var(--gold); }
+
   .bubble-field { position: absolute; inset: 0; overflow: hidden; }
   .bubble {
     position: absolute; bottom: 0;
@@ -417,7 +461,7 @@
   .wd-lead b { color: var(--gold); }
   .wd-lead span { font-size: .85em; color: var(--text-faint); }
   .wd-sent { display: flex; flex-wrap: wrap; gap: 5px; align-content: flex-start; }
-  .wd-cap { width: 100%; font-size: 11px; color: var(--text-faint); margin-bottom: 2px; }
+  .sw-cap { width: 100%; font-size: 11px; color: var(--text-faint); margin-bottom: 2px; }
   /* 보낸 말은 골드로 굳는다 — «내 말이 무대로 갔다» 는 표시 */
   .wd-chip {
     font-size: 12px; padding: 5px 9px; border-radius: 999px;
@@ -488,6 +532,12 @@
   body.embed .hint { font-size: 2vh; }
   body.embed .verdict { font-size: 9vh; }
   body.embed .verdict .sub { font-size: 2.6vh; }
+  /* 5키 «경고» — 깜박인다. 음성이 흐르는 9.7초 동안 계속 뜬 채로 있어야 하는데,
+     가만히 떠 있으면 «화면이 멈췄나» 로 읽힌다. 켜졌다 꺼지는 간판처럼 만든다.
+     ⚠ 완전히 사라지게(opacity 0) 하면 글자가 읽히지 않는 순간이 생긴다.
+       바닥을 .25 로 두어 «흐려졌다 밝아지는» 정도로만 둔다. */
+  .verdict.warn-blink { animation: warnblink .62s steps(1, end) infinite; }
+  @keyframes warnblink { 0%, 55% { opacity: 1; } 56%, 100% { opacity: .25; } }
   body.embed .done h1 { font-size: 7vh; }
   /* 네온 관도 화면에 맞춰 굵어져야 한다 — 고정 2px 은 큰 화면에서 실처럼 얇다 */
   body.embed .neon { -webkit-text-stroke-width: .28vh; }
@@ -546,7 +596,7 @@
   body.phone-only .sec-lead { font-size: 17px; }
   body.phone-only .wd-lead { font-size: 16px; }
   body.phone-only .wd-chip { font-size: 15px; padding: 7px 12px; }
-  body.phone-only .wd-cap { font-size: 13px; }
+  body.phone-only .sw-cap { font-size: 13px; }
   body.phone-only .ph-warn { font-size: 12px; margin-top: 14px; }
   /* 랜딩 그림은 남는 세로 공간을 전부 쓰고 좌우 끝까지 붙인다.
      cover 라 가장자리가 조금 잘리지만, 그림 주인공이 가운데라 문제되지 않는다.
@@ -635,6 +685,20 @@
       <div class="gauge-legend" id="gaugeMsg">관객의 응답을 기다리는 중…</div>
     </div>
 
+    <!-- 우리말 모으기 (진행자 6키) — 왼쪽 빙고판 · 오른쪽 낱말 벽.
+         관객이 보낸 말이 오른쪽에 쌓이고, 그 글자가 왼쪽 판을 켠다. -->
+    <div class="words" id="words" style="display:none">
+      <div class="sw-left">
+        <div class="sw-cap neon">말 모 이　판</div>
+        <div class="sw-board" id="swBoard"></div>
+        <div class="sw-count"><b id="swLit">0</b> / <span id="swTotal">31</span> 글자를 되찾았습니다</div>
+      </div>
+      <div class="sw-right">
+        <div class="sw-cap neon cyan">여 러 분 이　보 낸　우 리 말</div>
+        <div class="sw-wall" id="swWall"></div>
+      </div>
+    </div>
+
     <div class="verdict" id="verdict"></div>
   </div>
 
@@ -717,7 +781,7 @@ const VOICE_VOL = 1;                  // 0~1. 무대 스피커로 나가는 크�
 const VOICES = {
   구십퍼센트: { file: "5회차_s5_3_90퍼센트.mp3", sec: 4.7,  on: "key",  key: "9", delay: 0,
                 cue: "«말모이 작전이 90% 완료되었습니다» — 9키가 게이지를 90에 못박는 그 순간" },
-  경고:       { file: "5회차_s5_4_경고.mp3",     sec: 9.7,  on: "key",  key: "6", delay: 900,
+  경고:       { file: "5회차_s5_4_경고.mp3",     sec: 9.7,  on: "key",  key: "5", delay: 900,
                 cue: "«경고! 경고! 우리말을 사랑하는 힘이 부족합니다» — 앞의 경보음 0.6초를 피한다" },
   충전완료:   { file: "5회차_s5_5_충전완료.mp3", sec: 3.2,  on: "step", step: 3, delay: 700,
                 cue: "«축하드립니다. 한글 에너지 충전 완료» — 축포·팡파르가 먼저 터지고 나서" },
@@ -855,11 +919,38 @@ const QUESTIONS = [
      «퀴즈 답» 인지 가른다. 음수는 절대 쓰지 않는다(−1 은 작전 성공 신호). */
 const QI_WORD  = 100;                  // 우리말 모으기 응답의 문제 번호
 const WORD_MAX = 20;                   // 폰 입력·무대 표시 글자 수 상한
+const WARN_MS  = 9700;                 // 5키 «경고» 깜박임 — 음성 길이(9.7초)만큼
+
+/* 폰에 보내는 신호는 «문제 번호» 자리에 음수로 싣는다. 무대 폴링은 qi < 0 인
+   행을 게이지에서 통째로 건너뛰므로(poll), 신호가 복원율을 밀지 않는다.
+   ⚠ 번호를 늘리면 poll 의 `qi < 0` 조건 안에 자동으로 들어온다. 양수를 쓰면
+     그 순간 신호 한 줄이 관객 응답 한 건으로 세어진다. */
+const QI_FINISH = -1;                  // «작전 성공» — 폰도 엔딩 화면으로
+const QI_WORDS  = -2;                  // «우리말 모으기 개시» — 폰을 입력창으로
+
+/* ── 무대 빙고판 (2026-08-13 되살림) ────────────────────────
+   6×6 = 36칸. 아래 낱말의 글자를 겹치는 것끼리 한 칸으로 합치면 31자이고,
+   남는 다섯 칸은 어느 낱말에도 없는 «사석» 으로 채운다.
+
+   ⚠ 08-12 에 관객 폰에 넣었다가 뺐던 그 판이다. 이번에는 **무대**에 있고,
+     관객이 누르는 것이 아니라 **관객이 보낸 말에 반응해 저절로 켜진다.**
+     폰에서 뺀 이유가 «관객이 고개를 숙이게 된다» 였는데, 무대에 두면 반대로
+     고개를 들게 만든다 — 내가 보낸 말이 판을 켜는 것을 봐야 하기 때문이다.
+   ⚠ 낱말을 고치면 «겹치지 않는 글자 수» 를 세어 볼 것. 36을 넘으면 뒤쪽
+     낱말이 판에서 조용히 빠진다(makeBoard 가 콘솔에만 남긴다). */
+const BINGO_WORDS = [
+  "세종대왕", "이도", "대한민국", "훈민정음", "우리나라", "초비",
+  "이윤재", "한글", "말모이", "비밀요원", "대한독립만세", "애국가",
+];
+const BINGO_DECOY = ["조", "선", "어", "문", "사"];
+const BINGO_N = 6;
 
 const TOTAL = 50;                      // 시뮬레이션(미설정 시)용 가상 관객 수
 const MAX_PCT = 90;                    // 실집계가 자연히 수렴하는 상한 (연출)
 /* 순사 방해로 떨어지는 지점. 2026-08-12 대본에서 하강이 두 번으로 늘었다 */
-const DROP1_PCT = 60;                  // 하강 목표 — 6키 (경고! 경고!)
+/* ⚠ 2026-08-13 오후 — «하강 목표값» 상수를 없앴다. 새 대본에서 게이지를
+   떨어뜨리는 것은 진행자의 «−» 뿐이고, 그것은 목표값이 아니라 «지금 값에서
+   10%» 다. 5키(경고)는 게이지를 아예 건드리지 않는다. */
 const HALF = 50;                       // 응답 이만큼 모이면 상한의 절반에 도달
 
 let phase = "lobby";     // lobby | play | end
@@ -892,7 +983,7 @@ const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
    나가는 것을 0.22초 흐린 뒤 감추고, 들어오는 것을 같은 시간으로 띄운다.
    ⚠ 되감기(←)로 연달아 불릴 수 있다. 앞 전환의 타이머를 반드시 끊는다 —
      안 끊으면 뒤늦게 도착한 타이머가 «방금 띄운» 화면을 감춰 버린다. */
-const PANES = ["title", "lobby", "stage", "done"];
+const PANES = ["title", "lobby", "stage", "words", "done"];
 let paneTimer = null;
 function showPane(id) {
   clearTimeout(paneTimer);
@@ -1005,6 +1096,17 @@ function stepVoice(step) {
      흔들렸다. 지금은 진행자가 누른 그 순간에만 난다. */
 function keyVoice(k) {
   for (const key in VOICES) if (VOICES[key].on === "key" && VOICES[key].key === k) playVoice(key);
+}
+
+/* 같은 안내를 «다시» 낸다 — playVoice 의 «한 작전에 한 번» 규칙을 비켜 간다.
+   경고(5키)만 이 길로 다닌다. 대본이 배우 호흡에 맞춰 경고를 거듭 부를 수
+   있어, 두 번째부터 소리가 안 나면 진행자가 «키가 죽었다» 고 읽는다.
+   앞의 소리가 아직 흐르고 있으면 끊고 처음부터 다시 낸다 — 겹쳐 울리면
+   두 겹이 되어 말이 뭉개진다. */
+function replayVoice(key) {
+  voiceDone.delete(key);
+  stopVoice();
+  playVoice(key);
 }
 
 /* ── 관객 폰 안내 음성 ─────────────────────────────────────
@@ -1136,6 +1238,30 @@ function boom() {
     o.start(t); o.stop(t + 0.8);
   } catch (e) {}
 }
+/* 하강음 — «−» 를 누를 때마다 (2026-08-13)
+   게이지가 조용히 내려가면 객석은 줄어든 것을 못 본다. 소리가 있어야 하강이
+   사건이 된다. 다만 «쿵»(boom) 을 그대로 쓰면 안 된다 — 그건 100% 달성의
+   소리라 «끝났다» 로 들리고, 10%씩 네 번 누르는 동안 객석이 지친다.
+   그래서 짧게(0.34초) · 높은 데서 시작해 미끄러져 내려가는 소리로 만든다.
+   삼각파는 톱니보다 배음이 적어 여러 번 들어도 귀에 거슬리지 않는다. */
+function dropSfx() {
+  const ctx = audio();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  try {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "triangle";
+    o.frequency.setValueAtTime(520, t);
+    o.frequency.exponentialRampToValueAtTime(150, t + 0.30);   // 미끄러져 내려간다
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.10, t + 0.010);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(t); o.stop(t + 0.36);
+  } catch (e) {}
+  boom();                                   // 아래를 받치는 낮은 울림
+}
+
 /* 경보 — «경고! 경고!» 자리에 깔리는 사이렌.
    한 음을 두 음 사이로 미끄러뜨려야 «사이렌» 으로 들린다. 예전의 400/300
    4연타는 그냥 «삑삑» 이었다. 3회 왕복하고 잦아든다. */
@@ -1361,15 +1487,22 @@ function startPlay() {
    SELECT 권한만으로 되고, 실집계를 실수로 날릴 위험도 없다.
 
    · 응답  → 마지막 id (lastId) 보다 큰 행만
-   · 접속  → 마지막 joined_at (sinceJoin) 보다 나중 행만
 
    ⚠ 기준점은 서버가 가진 값에서 가져온다. 브라우저 시계로 «지금»을 만들면
-     서버와 몇 초만 어긋나도 접속이 통째로 새거나 묻힌다.
+     서버와 몇 초만 어긋나도 응답이 통째로 새거나 묻힌다.
    ⚠ 관객 폰(PHONE_ONLY)에서는 부르지 않는다. 폰은 셀 것이 없다.
    ⚠ 페이지 로드 때 한 번뿐이다. resetStage()(큐 재시작·되감기)에 넣으면
-     공연 중 큐 #40 으로 되돌아올 때마다 관객이 사라진다. */
+     공연 중 큐로 되돌아올 때마다 응답이 사라진다.
+
+   ## ⚠ 접속 인원에는 기준점을 쓰지 않는다 (2026-08-13 수정)
+   예전에는 접속도 «무대 화면이 열린 뒤» 만 셌다. 그런데 Q-Studio 는 큐를 GO 할
+   때마다 iframe 을 새로 띄우고, 그때 이 기준점이 다시 잡힌다 — **이미 접속해
+   있던 관객이 통째로 0 이 된다.** 리허설에서 폰을 먼저 붙여 두고 큐를 GO 하면
+   무대에 영영 «접속 0명» 이 뜬다(실제로 이 증상으로 발견했다).
+
+   지금은 **그 회차(SESSION)의 참여자를 전부 센다.** 지난 회차 수치가 섞이는
+   것은 기준점이 아니라 `?s=` 회차 분리로 막는다(4-1). 그게 원래 그 장치의 몫이다. */
 let baselined = Promise.resolve();
-let sinceJoin = null;          // 이 무대 화면이 열린 시점의 마지막 접속 시각
 async function takeBaseline() {
   if (!LIVE || PHONE_ONLY) return;
   try {
@@ -1377,12 +1510,6 @@ async function takeBaseline() {
     const rows = await r.json();
     lastId = rows.length ? rows[0].id : 0;
   } catch (e) { console.warn("응답 기준점 실패:", e.message); }
-  try {
-    const r = await db(`participants?session=eq.${SESSION}` +
-                       `&select=joined_at&order=joined_at.desc&limit=1`);
-    const rows = await r.json();
-    sinceJoin = rows.length ? rows[0].joined_at : null;
-  } catch (e) { console.warn("접속 기준점 실패:", e.message); }
   answered = 0;
   joined = 0;
   paintJoin();
@@ -1410,18 +1537,22 @@ async function poll() {
     const rows = await r.json();
     for (const row of rows) {
       lastId = Math.max(lastId, row.id);
-      if (row.qi < 0) continue;                     // 폰에 보낸 «작전 성공» 신호 행
+      if (row.qi < 0) continue;                     // 폰에 보낸 신호 행(작전 성공·우리말 개시)
       const word = row.qi === QI_WORD ? String(row.text || "").slice(0, WORD_MAX) : null;
-      if (phase === "play") addAnswer(!!row.hit, word);
+      /* 우리말 모으기가 열려 있으면 낱말은 빙고판·낱말 벽으로 간다.
+         게이지도 같이 올린다 — 관객이 보낸 말이 원고를 되찾는다는 규칙은
+         화면이 바뀌어도 그대로다. */
+      if (word && wordsOpened) addWord(word);
+      if (phase === "play") addAnswer(!!row.hit, wordsOpened ? null : word);
       else { answered++; setText("answeredNum", "응답 " + answered); }
     }
     if (phase === "play" && !rows.length) paintGauge();
 
-    /* 접속 인원 — «이 무대 화면이 열린 뒤에» 들어온 관객만 센다.
-       ⚠ joined_at 은 «+00:00» 로 끝난다. 그대로 URL 에 붙이면 +가 공백으로
-         해석돼 필터가 통째로 깨진다. 반드시 인코딩해서 넣는다. */
-    const since = sinceJoin ? `&joined_at=gt.${encodeURIComponent(sinceJoin)}` : "";
-    const p = await db(`participants?session=eq.${SESSION}${since}&select=device`,
+    /* 접속 인원 — 그 회차에 들어온 관객을 «전부» 센다.
+       ⚠ 2026-08-13 — 여기 있던 joined_at 기준점 필터를 뺐다. 큐를 GO 할 때마다
+         기준점이 다시 잡혀 이미 접속한 관객이 0 이 됐다(takeBaseline 설명 참고).
+         회차가 섞이는 것은 `?s=` 로 막는다. */
+    const p = await db(`participants?session=eq.${SESSION}&select=device`,
                        { headers: { Prefer: "count=exact", Range: "0-0" } });
     const cr = p.headers.get("content-range");       // 예: "0-0/37"
     const n = cr && +cr.split("/")[1];
@@ -1454,31 +1585,131 @@ function scheduleCrowd() {
   }
 }
 
-/* ── 순사 방해 — 2026-08-12 부터 «두 번» 떨어진다 ──────────
-   대본이 바뀌었다. 예전에는 한 번에 70% 로 떨어뜨렸는데, 지금은
+/* ── 5키 — 경고 (2026-08-13 오후 개편) ─────────────────────
+   ⚠ **게이지를 건드리지 않는다.** 예전에는 이 키가 60% 로 떨어뜨렸는데,
+     새 대본에서 하강은 오로지 «−» 가 맡는다(진행자가 손으로 깎는다).
+     5키가 하는 일은 «경고를 낸다» 뿐이다 — 화면 깜박임 + 사이렌 + 음성.
 
-     첫 하강(5키·3단계)  덕이 대사 뒤 — 60% · 사이렌 + 흔들림 + 자막
-     둘째 하강(6키)      덕이가 한 번 더 — 50% · 낮은 «쿵» + 짧은 흔들림
+   ⚠ **몇 번이고 다시 눌러 쓴다.** 대본이 배우 호흡에 맞춰 경고를 거듭
+     부를 수 있어, 안내 음성의 «한 작전에 한 번» 규칙(playVoice)을 여기서만
+     비켜 간다. 앞의 소리가 아직 흐르고 있으면 끊고 처음부터 다시 낸다. */
+function warnFlash() {
+  const v = $("verdict");
+  v.className = "verdict show bad warn-blink";
+  v.innerHTML = `경 고<div class="sub">우 리 말 을 　 지 켜 　 주 십 시 오</div>`;
+  clearTimeout(warnFlash._t);
+  warnFlash._t = setTimeout(() => { v.className = "verdict"; }, WARN_MS);
 
-   둘째에 사이렌을 다시 울리지 않는 것은, 같은 소리가 20초 안에 두 번 나면
-   «놀람» 이 아니라 «신호음» 으로 들리기 때문이다. 두 번째는 더 낮고 짧게
-   떨어뜨려, 첫 번째보다 세지 않되 «또 당했다» 는 것만 전한다. */
-function sabotage() {
-  const now = shownPct();
-  // 아직 60%에 못 미친 시점에 눌렀다면 60%로 "올라가는" 모순이 생기므로,
-  // 그때는 현재 값의 3/4 지점으로 떨어뜨린다.
-  dropToPct(now > DROP1_PCT ? DROP1_PCT : now * 0.75);
-  $("gaugeFill").classList.add("drop");
-  $("screen").classList.add("shake");
-  setTimeout(() => $("screen").classList.remove("shake"), 480);
-  setTimeout(() => $("gaugeFill").classList.remove("drop"), 1600);
-  /* ⚠ 2026-08-13 — «순사 급습» 이라는 이벤트는 없다. 자막과 문구를 걷었다.
-     남는 것은 «게이지가 떨어지고 경고가 울린다» 뿐이다. */
   $("gaugeMsg").textContent = "우리말을 사랑하는 힘이 부족합니다 — 다시 채워 주십시오!";
   alarm();
-  keyVoice("6");                      // «경고! 경고! 우리말을 사랑하는 힘이…»
+  replayVoice("경고");                // 중복 재생 허용 — 위 설명 참고
 }
 
+
+/* ══════════════ 우리말 모으기 — 무대 (2026-08-13) ══════════════
+   진행자가 6키를 누르면 열린다. 왼쪽 빙고판, 오른쪽 낱말 벽.
+
+   판이 켜지는 규칙은 하나다 — **관객이 보낸 말에 들어 있는 글자가 판에 있으면
+   그 칸이 켜진다.** 「사랑」 을 보내면 「사」 가 켜지는 식이다. 관객이 판을
+   맞히려고 애쓸 필요가 없다. 아무 우리말이나 보내도 판이 조금씩 밝아지고,
+   그것이 «흩어진 말을 모아 원고를 되살린다» 는 이 장면의 그림이 된다.
+
+   ⚠ 관객에게 판을 «풀라» 고 시키지 않는다. 폰 화면은 그냥 입력창이고,
+     판은 무대에서 저절로 켜진다. 관객이 판을 보고 글자를 맞추려 들면 고개가
+     다시 폰으로 내려가는데, 이 장면은 무대를 올려다보게 하려고 만든 자리다.
+   ⚠ 사석 다섯 칸은 어느 낱말에도 없는 글자라 **영영 켜지지 않는다.** 그래서
+     «31 글자» 를 세어 보여준다 — 36 으로 세면 영원히 채워지지 않는다. */
+let bingoTiles = [];                    // [{ch, dead}] 36칸
+let litCells = new Set();               // 켜진 칸 번호
+let wordsOpened = false;                // 6키를 이미 눌렀나
+
+const bgShuffle = a => {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
+/* 낱말을 글자로 펴서 겹치는 것을 합친다. 36칸을 넘으면 뒤쪽 낱말을 버린다 —
+   공연 중에는 판이 깨지는 것보다 낱말 하나가 조용히 빠지는 편이 낫다. */
+function makeBoard() {
+  const seen = new Set();
+  for (const w of BINGO_WORDS) {
+    const next = new Set(seen);
+    for (const ch of w) next.add(ch);
+    if (next.size > BINGO_N * BINGO_N) { console.warn("빙고판 36칸을 넘어 제외:", w); continue; }
+    next.forEach(ch => seen.add(ch));
+  }
+  const letters = [...seen];
+  const decoy = BINGO_DECOY.filter(d => !seen.has(d))
+                           .slice(0, BINGO_N * BINGO_N - letters.length);
+  const tiles = letters.map(ch => ({ ch, dead: false }))
+                       .concat(decoy.map(ch => ({ ch, dead: true })));
+  while (tiles.length < BINGO_N * BINGO_N) tiles.push({ ch: "·", dead: true });
+  return bgShuffle(tiles);
+}
+
+/* 6키 — 우리말 모으기를 연다. 여러 번 눌러도 판은 그대로 두고 신호만 다시
+   보낸다. 늦게 접속한 폰은 앞의 신호를 못 보므로(폰은 접속 시점 이후 신호만
+   본다), 진행자가 한 번 더 눌러 주우면 된다. */
+function openWords() {
+  if (phase !== "play") applyStep(2);
+  signalPhones(QI_WORDS);                       // 폰을 입력창으로
+  if (wordsOpened) { $("gaugeMsg").textContent = "우리말을 모으는 중… (신호 다시 보냄)"; return; }
+  wordsOpened = true;
+
+  bingoTiles = makeBoard();
+  litCells.clear();
+  const board = $("swBoard");
+  board.innerHTML = "";
+  bingoTiles.forEach((t, i) => {
+    const c = document.createElement("div");
+    c.className = "sw-cell" + (t.dead ? " dead" : "");
+    c.textContent = t.ch;
+    c.dataset.i = i;
+    board.appendChild(c);
+  });
+  $("swWall").innerHTML = "";
+  $("swTotal").textContent = bingoTiles.filter(t => !t.dead).length;
+  $("swLit").textContent = "0";
+  showPane("words");
+  $("counter").textContent = "우리말을 모으는 중";
+  showOpBar();
+}
+
+/* 관객이 보낸 말 한 마디가 도착했다. 오른쪽 벽에 붙이고, 그 글자가 판에
+   있으면 켠다. 무대 노출을 끈 상태(W)라도 판은 켜진다 — 글자 하나하나는
+   누가 보냈는지 알 수 없어 위험하지 않고, 그것마저 멈추면 장면이 죽는다. */
+function addWord(text) {
+  if (!wordsOpened) return;
+  let hit = false;
+  for (const ch of text) {
+    bingoTiles.forEach((t, i) => {
+      if (t.dead || t.ch !== ch || litCells.has(i)) return;
+      litCells.add(i);
+      hit = true;
+      const cell = $("swBoard").children[i];
+      if (cell) {
+        cell.classList.add("lit", "just");
+        setTimeout(() => cell.classList.remove("just"), 520);
+      }
+    });
+  }
+  $("swLit").textContent = litCells.size;
+
+  if (showWords) {
+    const wall = $("swWall");
+    const el = document.createElement("div");
+    el.className = "sw-word" + (hit ? " hit" : "");
+    el.textContent = text;                      // ⚠ innerHTML 금지 — 관객이 쓴 글자다
+    wall.insertBefore(el, wall.firstChild);
+    /* 넘치면 오래된 것부터 걷는다. 스크롤이 없는 화면이라 그냥 두면
+       아래로 밀려 나가 «벽이 멈춘 것» 처럼 보인다. */
+    while (wall.childElementCount > 60) wall.removeChild(wall.lastChild);
+  }
+  if (hit) voteSfx(true);
+}
 
 /* ── 진행자 개입 ──────────────────────────────────────────
    실집계가 게이지를 몰지만, 연출상 필요한 순간에는 진행자가
@@ -1504,8 +1735,22 @@ function pinPct(to) {
 }
 
 /* − 키 — 지금 보이는 값에서 10%씩 깎는다. 0% 아래로는 내려가지 않는다.
-   실집계 중이든 이미 고정된 뒤든 «화면에 보이는 값» 을 기준으로 삼는다. */
-function stepDown() { pinPct(shownPct() - 10); }
+   실집계 중이든 이미 고정된 뒤든 «화면에 보이는 값» 을 기준으로 삼는다.
+
+   2026-08-13 — 누를 때마다 소리와 흔들림이 같이 난다. 무대 게이지가 조용히
+   내려가면 객석에서는 «줄었다» 는 것을 알아채지 못한다. 소리가 있어야 하강이
+   사건이 된다. 다만 한 번에 10%씩 여러 번 누르는 조작이라 짧고 가볍게 낸다 —
+   급습 사이렌만큼 크면 네 번 누르는 동안 객석이 지친다. */
+function stepDown() {
+  const from = shownPct();
+  pinPct(from - 10);
+  if (from <= 0) return;                      // 바닥에서는 소리도 내지 않는다
+  dropSfx();
+  $("gaugeFill").classList.add("drop");
+  $("screen").classList.add("shake");
+  setTimeout(() => $("screen").classList.remove("shake"), 260);
+  setTimeout(() => $("gaugeFill").classList.remove("drop"), 900);
+}
 
 /* ── 축포 ──────────────────────────────────────────────────
    양쪽 아래에서 조각이 솟구쳤다 흩어져 떨어진다. 조각마다 궤적이 달라야
@@ -1555,12 +1800,20 @@ let finishSignalled = false;      // 한 번의 엔딩에 신호는 한 줄만
 async function signalFinish() {
   if (!LIVE || finishSignalled) return;
   finishSignalled = true;
+  signalPhones(QI_FINISH);
+}
+
+/* 무대 → 폰 신호. answers 테이블에 음수 qi 한 줄을 남기면 폰이 폴링으로
+   주워 간다. 두 화면을 잇는 통로가 Supabase 뿐이라 이 길밖에 없다.
+   실패해도 조용히 넘어간다 — 무대 진행을 막으면 안 된다. */
+async function signalPhones(qNo) {
+  if (!LIVE) return;
   try {
     await db("answers", {
       method: "POST",
-      body: JSON.stringify({ device: "__stage__", session: SESSION, qi: -1, text: "finish", hit: true }),
+      body: JSON.stringify({ device: "__stage__", session: SESSION, qi: qNo, text: "signal", hit: true }),
     });
-  } catch (e) { console.warn("완료 신호 전송 실패:", e.message); }
+  } catch (e) { console.warn("폰 신호 전송 실패:", qNo, e.message); }
 }
 function autoPct() {              // 개입 해제 — 실집계 값으로 되돌린다
   pinned = null; anchor = null;
@@ -1597,8 +1850,9 @@ function showOpBar() {
     `<span>접속 <b>${joined}</b> · 응답 <b>${answered}</b> · 게이지 <b>${Math.round(shownPct())}%</b></span>` +
     `<span>모드: ${mode}</span>` +
     `<span>우리말 노출: <b class="${showWords ? "ok" : "warn"}">${showWords ? "켜짐" : "꺼짐(W)"}</b></span>` +
-    `<span class="k">클릭 진행 · <b>1</b> +1% · <b>5</b> 급습(60) · <b>6</b> 또 하강(50) · <b>7</b> 70% · <b>−</b> 10%↓ · ` +
-    `<b>9</b> 90%+맨트 · <b>0</b> 100%+축포→종료 · <b>A</b> 자동 · <b>W</b> 우리말 · <b>H</b> 숨김</span>`;
+    `<span class="k">클릭 진행 · <b>1</b> +1% · <b>−</b> 10%↓+소리 · <b>5</b> 경고(반복가능) · ` +
+    `<b>6</b> 우리말 모으기${wordsOpened ? "(열림·재신호)" : ""} · <b>7</b> 70% · ` +
+    `<b>9</b> 90%+맨트 · <b>0</b> 100%+축포→종료 · <b>A</b> 자동 · <b>W</b> 낱말노출 · <b>H</b> 숨김</span>`;
 }
 
 /* ── 종료 ──────────────────────────────────────────────── */
@@ -1710,7 +1964,7 @@ function phoneStart() {
    마지막 주관식 뒤에는 «끝» 이 아니라 «우리말 모으기» 가 이어진다 —
    무대가 급습·완료까지 가는 동안 관객의 손이 비면 안 되기 때문이다. */
 function nextQuestion() {
-  if (qi >= QUESTIONS.length - 1) { renderPhoneWords(); return; }
+  if (qi >= QUESTIONS.length - 1) { renderPhoneWait(); return; }
   const was = QUESTIONS[qi].type;
   qi++;
   const n = SECTIONS.findIndex(s => s.type === QUESTIONS[qi].type);
@@ -1729,6 +1983,7 @@ function dialectHTML(q) {
 }
 
 function renderPhoneQuestion() {
+  phoneScreen = "quiz";
   const q = QUESTIONS[qi];
   const head = `
     <div class="ph-head">
@@ -1834,7 +2089,36 @@ function renderPhoneSection(n) {
      글자를 그대로 태그로 해석해 버린다 — textContent 로만 넣는다. */
 let wordsSent = [];
 
+/* ── 관객 폰: 대기 (2026-08-13 신설) ────────────────────────
+   주관식 8번을 마치면 여기서 멈춘다. 예전에는 곧장 입력창으로 넘어갔는데,
+   그러면 관객마다 도착 시각이 달라 무대가 아직 다른 장면인데 폰만 먼저
+   «우리말을 보내라» 고 재촉했다. 지금은 **진행자가 6키를 누를 때** 다 같이
+   넘어간다 — 무대와 객석이 같은 박자로 움직인다.
+
+   ⚠ 늦게 접속한 폰은 앞서 나간 신호를 못 본다(접속 시점 이후 신호만 본다).
+     그래서 6키는 몇 번이고 다시 눌러 신호를 흘려보낼 수 있게 해 두었다.
+     여기 갇힌 폰이 보이면 진행자가 6을 한 번 더 누르면 된다. */
+function renderPhoneWait() {
+  /* 신호가 이미 지나갔다면 기다릴 이유가 없다 — 바로 입력창으로 */
+  if (wordsSignalled) { renderPhoneWords(); return; }
+  phoneScreen = "wait";
+  $("phone").innerHTML = `
+    <div class="ph-head">
+      <div class="ph-top">말모이 작전 · 지령 완수</div>
+      <div class="ph-bar"><i style="width:100%"></i></div>
+    </div>
+    <div class="ph-body">
+      <div class="ph-done">
+        <div class="big">🎖️</div>
+        <b style="color:var(--gold);font-size:1.3em">${QUESTIONS.length}문제 모두 응답했습니다</b><br>
+        무대 화면을 봐 주세요.<br>
+        <span style="font-size:.85em;color:var(--text-faint)">잠시 뒤 마지막 지령이 내려옵니다…</span>
+      </div>
+    </div>`;
+}
+
 function renderPhoneWords() {
+  phoneScreen = "words";
   wordsSent = [];
   $("phone").innerHTML = `
     <div class="ph-head">
@@ -1893,17 +2177,24 @@ function paintWords() {
   });
 }
 
-/* ── 관객 폰: 무대의 «작전 성공»을 기다린다 ────────────────
+/* ── 관객 폰: 무대가 보내는 신호를 기다린다 ─────────────────
    3초마다 신호 행이 생겼는지만 본다. 폰이 수백 대라 자주 물으면 부담이 되고,
-   엔딩은 1~2초 늦어도 무대를 보고 있으므로 티가 나지 않는다.
-   실패해도 조용히 넘어간다 — 퀴즈 진행을 막으면 안 된다. */
+   1~2초 늦어도 관객은 무대를 보고 있으므로 티가 나지 않는다.
+   실패해도 조용히 넘어간다 — 퀴즈 진행을 막으면 안 된다.
+
+   신호는 둘이다.
+     QI_WORDS  (-2)  진행자 6키 — 마지막 지령. 대기 화면 → 우리말 입력창
+     QI_FINISH (-1)  진행자 0키 — 작전 성공. 어느 화면이든 엔딩으로
+
+   ⚠ 신호 행은 테이블에 그대로 남는다. 기준선 없이 «신호가 있나» 만 물으면
+     지난 회차(리허설 포함)에 눌러 둔 키 때문에 접속하자마자 건너뛴다.
+     그래서 접속 시점의 마지막 id 를 기준선으로 잡고 «그보다 새로운» 신호에만
+     반응한다. 옛 신호는 그대로 있어도 무해해진다.
+   ⚠ 그 대가로 **신호가 나간 뒤에 접속한 폰은 그 신호를 못 본다.** 6키를 여러
+     번 눌러 쓸 수 있게 해 둔 것이 이 구멍을 메우는 유일한 수단이다. */
 let phoneWatcher = null;
 let sinceId = 0;              // 이 폰이 접속한 시점의 마지막 응답 id
 
-/* ⚠ 신호 행은 테이블에 그대로 남는다. 기준선 없이 «신호가 있나» 만 물으면
-   지난 회차(리허설 포함)에 눌러 둔 0 키 때문에, 접속하자마자 작전 성공으로
-   건너뛴다. 그래서 접속 시점의 마지막 id 를 기준선으로 잡고 «그보다 새로운»
-   신호에만 반응한다. 옛 신호는 그대로 있어도 무해해진다. */
 async function watchFinish() {
   if (!LIVE || phoneWatcher) return;
   try {
@@ -1917,17 +2208,40 @@ async function watchFinish() {
   }
   phoneWatcher = setInterval(async () => {
     try {
-      const r = await db(`answers?session=eq.${SESSION}&qi=eq.-1&id=gt.${sinceId}&select=id&limit=1`);
-      if ((await r.json()).length) phoneFinish();
+      /* 두 신호를 한 번에 물어 온다 — 폰 수백 대가 3초마다 두 번씩 두드리면
+         그만큼 부담이 두 배가 된다. */
+      const r = await db(`answers?session=eq.${SESSION}&qi=lt.0&id=gt.${sinceId}` +
+                         `&select=id,qi&order=id.asc&limit=20`);
+      const rows = await r.json();
+      for (const row of rows) {
+        if (row.qi === QI_FINISH) { phoneFinish(); return; }   // 엔딩이 우선이다
+        if (row.qi === QI_WORDS)  phoneToWords();
+      }
     } catch (e) { /* 다음 차례에 다시 본다 */ }
   }, 3000);
+}
+
+/* 6키 신호를 받았다 — 마지막 지령으로 넘어간다.
+   ⚠ 아직 퀴즈를 풀고 있는 폰은 그 자리에서 건드리지 않는다. 문제를 푸는 중에
+     화면이 통째로 바뀌면 그 사람의 응답 하나가 사라지고, 무엇보다 놀란다.
+   ⚠ 대신 «신호가 이미 나갔다» 를 기억해 둔다(wordsSignalled). 늦게 푼 사람이
+     대기 화면에 닿는 순간 곧바로 입력창으로 보낸다 — 진행자가 6을 다시
+     눌러 주지 않아도 된다. 이것이 없으면 느린 관객이 영영 대기에 갇힌다. */
+let wordsSignalled = false;
+let phoneScreen = "";           // lobby | quiz | wait | words | end
+
+function phoneToWords() {
+  if (phase === "end") return;
+  wordsSignalled = true;
+  if (phoneScreen === "wait") renderPhoneWords();
 }
 
 /* 무대와 같은 «작전 완료» 화면 + 축포.
    소리는 내지 않는다 — 폰 수백 대가 동시에 울리면 객석이 소란해지고,
    그 순간 관객이 봐야 할 것은 무대다. */
 function phoneFinish() {
-  if (phase === "end") return;                     // 두 번 터지지 않게
+  if (phase === "end") return;
+  phoneScreen = "end";                     // 두 번 터지지 않게
   phase = "end";
   if (phoneWatcher) { clearInterval(phoneWatcher); phoneWatcher = null; }
   /* 흐르던 지령을 끊는다 — 작전이 끝난 화면 위로 앞의 말이 계속 흐르면 사고다 */
@@ -1986,7 +2300,7 @@ function advance() {
 /* ⚠ 여기에 없는 키는 Q-Studio 안에서 «아무 반응이 없다». 핸들러가 멀쩡해도
      조종창이 그 키를 프레임에 넣어 주지 않기 때문이다. 실제로 «-» 를 빠뜨려
      10% 감소가 무대에서만 먹통이었다(2026-08-12). 키를 늘리면 여기도 늘린다. */
-window.cueoutKeys = ["1", "6", "7", "-", "9", "0", "a", "A", "h", "H", "w", "W"];
+window.cueoutKeys = ["1", "5", "6", "7", "-", "9", "0", "a", "A", "h", "H", "w", "W"];
 
 document.body.onkeydown = e => {
   if (PHONE_ONLY) return;                          // 관객이 연출을 건드리면 안 된다
@@ -1999,7 +2313,11 @@ document.body.onkeydown = e => {
   const onGauge = fn => { if (phase !== "play") applyStep(2); if (phase === "play") fn(); };
   if (!EMBEDDED && (e.code === "Space" || e.code === "Enter")) { e.preventDefault(); advance(); }
   else if (k === "1") { onGauge(bumpOne); }                      // 의견 1건 — +1%
-  else if (k === "6") { onGauge(() => { clickStep = 2; sabotage(); }); }  // 60% 하강 + «경고 경고»
+  /* 5 — 경고. 게이지는 건드리지 않는다. 몇 번이고 다시 눌러 쓴다(warnFlash) */
+  else if (k === "5") { onGauge(warnFlash); }
+  /* 6 — 우리말 모으기 개시. 무대는 빙고판으로, 관객 폰은 입력창으로 넘어간다.
+         늦게 접속한 폰을 주우려면 한 번 더 누른다(신호만 다시 나간다) */
+  else if (k === "6") { openWords(); }
   else if (k === "7") { onGauge(() => pinPct(70)); }             // 70% 로 이동
   else if (k === "-") { onGauge(stepDown); }                     // 10%씩 감소
   else if (k === "9") { onGauge(() => { pinPct(90); keyVoice("9"); }); }  // 90% 고정 + 안내 맨트
@@ -2050,6 +2368,10 @@ function resetStage() {
   stopVoice();
   voiceDone.clear();
   finishSignalled = false;   // 되감아 다시 끝내면 폰에도 다시 알린다
+  /* 우리말 모으기도 처음으로 되돌린다 — 되감아 다시 6키를 누르면 판이 새로
+     섞여 나온다. 켜진 칸을 그대로 두면 되감은 화면에 지난 회차가 남는다. */
+  wordsOpened = false; litCells.clear(); bingoTiles = [];
+  $("swBoard").innerHTML = ""; $("swWall").innerHTML = "";
   phase = "lobby"; anchor = null; pinned = null; clickStep = 0;
   showPane("title");                      // 0단계 = 타이틀
   $("joinBox").style.display = "none";    // 타이틀에는 접속 인원도 없다
