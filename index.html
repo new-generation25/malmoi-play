@@ -800,6 +800,27 @@ const VOICES = {
    ⚠ 수백 대가 겹치면 객석이 소란해진다. 볼륨을 눌러 둔다.
    ⚠ 2026-08-12 23:03 에 셋 다 구워 넣었다(해랑 · tonedown 1.0 · 속도 0.92 — 무대 것과 같은 음색).
      m1 8.1초 · m2 2.8초 · m3 3.1초. 파일이 없어도 화면 진행은 멈추지 않는다(콘솔 경고만). */
+/* ── 배경음악 (2026-08-13 · 진행자 3키) ─────────────────────
+   큐 #43 「말모이 퀴즈 html」 의 음악 슬롯에 걸린 것과 **같은 곡**이다.
+
+   ⚠ **큐 슬롯과 이 키는 둘 중 하나만 써야 한다.** Q-Studio 는 큐를 GO 하는
+     순간 음악 슬롯을 자동으로 재생한다. 슬롯을 그대로 둔 채 3키까지 누르면
+     같은 곡이 두 겹으로 흘러 위상이 어긋난 «울렁거리는» 소리가 된다.
+     키로 잡으려면 **큐 #43 의 음악 슬롯을 비워야 한다**(큐 데이터라 사람이 직접).
+
+   ⚠ 곡을 시작하는 시점을 손에 쥐려고 키로 뺀 것이다. 큐 GO 는 화면이 뜨는
+     순간이라 노래가 늘 거기서 시작되는데, 대본은 «덕이 대사 뒤» 처럼 배우
+     호흡에 맞춰 들어가야 할 때가 있다.
+
+   ⚠ 경로는 VOICE_DIR 과 같은 규칙이다 — 원본은 html\ 아래라 «../sound/»,
+     Vercel 배포본은 뿌리라 «sound/». 다만 **배경음악은 무대 전용**이라
+     관객 폰은 이 파일을 아예 받지 않는다(3키는 폰에 넘어가지 않는다). */
+const MUSIC_DIR  = location.pathname.includes("/html/") ? "../sound/" : "sound/";
+const MUSIC_FILE = "가나다 송 piano.mp3";
+const MUSIC_VOL  = 0.5;                // 안내 음성 아래에 깔리는 크기
+const MUSIC_LOOP = true;               // 퀴즈가 곡보다 길다 — 끊기지 않게 돈다
+const MUSIC_FADE = 700;                // ms. 뚝 끊으면 «딸깍» 이 난다
+
 const PHONE_VOICE_VOL = 0.85;
 const PHONE_VOICES = {
   참여감사: { file: "5회차_m1_참여감사.mp3",
@@ -1096,6 +1117,52 @@ function stepVoice(step) {
      흔들렸다. 지금은 진행자가 누른 그 순간에만 난다. */
 function keyVoice(k) {
   for (const key in VOICES) if (VOICES[key].on === "key" && VOICES[key].key === k) playVoice(key);
+}
+
+/* ── 배경음악 — 3키로 켜고 끈다 ────────────────────────────
+   ⚠ 무대에서만 난다. 관객 폰(PHONE_ONLY)과 조종창 미러(!ON_STAGE)에서는
+     열지 않는다 — 미러가 같이 울면 무대 스피커로 두 겹이 나간다.
+   ⚠ 페이드로 넣고 뺀다. 배경음악을 뚝 끊으면 «딸깍» 이 객석까지 들린다. */
+let bgm = null;
+let bgmFade = null;
+
+function bgmPlaying() { return !!(bgm && !bgm.paused); }
+
+function bgmRamp(to, ms, done) {
+  clearInterval(bgmFade);
+  if (!bgm) return;
+  const from = bgm.volume, steps = Math.max(1, Math.round(ms / 40));
+  let i = 0;
+  bgmFade = setInterval(() => {
+    i++;
+    const v = from + (to - from) * (i / steps);
+    try { bgm.volume = Math.max(0, Math.min(1, v)); } catch (e) {}
+    if (i >= steps) { clearInterval(bgmFade); bgmFade = null; if (done) done(); }
+  }, 40);
+}
+
+function bgmToggle() {
+  if (PHONE_ONLY || !ON_STAGE) return;
+  if (bgmPlaying()) { bgmStop(); return; }
+  if (!bgm) {
+    bgm = new Audio(MUSIC_DIR + encodeURIComponent(MUSIC_FILE));
+    bgm.loop = MUSIC_LOOP;
+    bgm.preload = "auto";
+  }
+  bgm.volume = 0;
+  const p = bgm.play();
+  if (p && p.catch) p.catch(e => console.warn("배경음악 재생 실패:", e && e.message));
+  bgmRamp(MUSIC_VOL, MUSIC_FADE);
+  showOpBar();
+}
+
+function bgmStop() {
+  if (!bgm || bgm.paused) return;
+  bgmRamp(0, MUSIC_FADE, () => {
+    try { bgm.pause(); bgm.currentTime = 0; } catch (e) {}
+    showOpBar();
+  });
+  showOpBar();
 }
 
 /* 같은 안내를 «다시» 낸다 — playVoice 의 «한 작전에 한 번» 규칙을 비켜 간다.
@@ -1850,7 +1917,8 @@ function showOpBar() {
     `<span>접속 <b>${joined}</b> · 응답 <b>${answered}</b> · 게이지 <b>${Math.round(shownPct())}%</b></span>` +
     `<span>모드: ${mode}</span>` +
     `<span>우리말 노출: <b class="${showWords ? "ok" : "warn"}">${showWords ? "켜짐" : "꺼짐(W)"}</b></span>` +
-    `<span class="k">클릭 진행 · <b>1</b> +1% · <b>−</b> 10%↓+소리 · <b>5</b> 경고(반복가능) · ` +
+    `<span>배경음악: <b class="${bgmPlaying() ? "ok" : "warn"}">${bgmPlaying() ? "재생 중" : "꺼짐(3)"}</b></span>` +
+    `<span class="k">클릭 진행 · <b>1</b> +1% · <b>3</b> 음악 · <b>−</b> 10%↓+소리 · <b>5</b> 경고(반복가능) · ` +
     `<b>6</b> 우리말 모으기${wordsOpened ? "(열림·재신호)" : ""} · <b>7</b> 70% · ` +
     `<b>9</b> 90%+맨트 · <b>0</b> 100%+축포→종료 · <b>A</b> 자동 · <b>W</b> 낱말노출 · <b>H</b> 숨김</span>`;
 }
@@ -2300,7 +2368,7 @@ function advance() {
 /* ⚠ 여기에 없는 키는 Q-Studio 안에서 «아무 반응이 없다». 핸들러가 멀쩡해도
      조종창이 그 키를 프레임에 넣어 주지 않기 때문이다. 실제로 «-» 를 빠뜨려
      10% 감소가 무대에서만 먹통이었다(2026-08-12). 키를 늘리면 여기도 늘린다. */
-window.cueoutKeys = ["1", "5", "6", "7", "-", "9", "0", "a", "A", "h", "H", "w", "W"];
+window.cueoutKeys = ["1", "3", "5", "6", "7", "-", "9", "0", "a", "A", "h", "H", "w", "W"];
 
 document.body.onkeydown = e => {
   if (PHONE_ONLY) return;                          // 관객이 연출을 건드리면 안 된다
@@ -2313,6 +2381,9 @@ document.body.onkeydown = e => {
   const onGauge = fn => { if (phase !== "play") applyStep(2); if (phase === "play") fn(); };
   if (!EMBEDDED && (e.code === "Space" || e.code === "Enter")) { e.preventDefault(); advance(); }
   else if (k === "1") { onGauge(bumpOne); }                      // 의견 1건 — +1%
+  /* 3 — 배경음악 켜고 끄기. 게이지·단계와 무관하므로 onGauge 를 거치지 않는다.
+         타이틀에서도 눌러 쓸 수 있어야 한다(막이 오르기 전에 곡을 깔 수 있게) */
+  else if (k === "3") { bgmToggle(); }
   /* 5 — 경고. 게이지는 건드리지 않는다. 몇 번이고 다시 눌러 쓴다(warnFlash) */
   else if (k === "5") { onGauge(warnFlash); }
   /* 6 — 우리말 모으기 개시. 무대는 빙고판으로, 관객 폰은 입력창으로 넘어간다.
