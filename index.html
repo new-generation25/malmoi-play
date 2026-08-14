@@ -766,13 +766,12 @@ const BASE_URL = "https://malmoi-play.vercel.app/";
    각자의 게이지가 따로 놀아 무대 화면과 어긋나기 때문이다.
 
    ⚠ 회차(`?s=`)를 QR 에 물려준다 — 2026-08-14 추가.
-   예전에는 `?p=1` 로 고정이라, 무대만 `?s=1` 로 열면 무대는 1회차를 읽고
-   관객 폰은 `live` 에 쓰는 «조용한 어긋남»이 났다. 접속·응답이 0 에서 안 오르고
-   커튼콜 배경화면도 관객 낱말을 못 읽는다. 오류가 아니라 «아무 일 없음»으로 보인다.
-   여기서 SESSION 상수를 못 쓰는 이유 — 그것은 아래(880행대)에서 선언되므로
-   이 줄이 실행되는 시점에는 아직 초기화 전이다(TDZ). 그래서 직접 읽는다. */
-const JOIN_S   = new URLSearchParams(location.search).get("s") || "";
-const JOIN_URL = BASE_URL + "?p=1" + (JOIN_S ? "&s=" + encodeURIComponent(JOIN_S) : "");
+   예전에는 `?p=1` 로 고정이라, 무대만 회차를 바꿔도 관객 폰은 `live` 에 쓰는
+   «조용한 어긋남»이 났다. 접속·응답이 0 에서 안 오르고 커튼콜 배경화면도 관객
+   낱말을 못 읽는다. 오류가 아니라 «아무 일 없음»으로 보인다. */
+const SESSION_DEFAULT = "1";      /* ← 공연 회차마다 이 숫자를 올린다. 08-16 첫 공연이 "1" */
+const JOIN_S   = new URLSearchParams(location.search).get("s") || SESSION_DEFAULT;
+const JOIN_URL = BASE_URL + "?p=1&s=" + encodeURIComponent(JOIN_S);
 const PHONE_ONLY = new URLSearchParams(location.search).get("p") === "1";
 
 /* ── 안내 음성(TTS) — 고칠 곳은 여기 한 곳뿐이다 ─────────────
@@ -897,7 +896,10 @@ if (EMBEDDED) document.body.classList.add("embed");
    «시뮬레이션» 배지가 떠서 실집계와 헷갈리지 않게 한다. */
 const SUPABASE_URL = "https://mxsxkktgsmaumeugripe.supabase.co";
 const SUPABASE_KEY = "sb_publishable_i9sNdU7qVquYjwlYPJo9IQ_SFw3QggM";
-const SESSION = new URLSearchParams(location.search).get("s") || "live";  // 공연 회차 구분
+/* 회차 기본값은 위(760행대) SESSION_DEFAULT 한 곳에서만 정한다.
+   ⚠ 커튼콜_배경화면.html 의 SESSION 과 반드시 같은 값이어야 한다 —
+   커튼콜이 이 회차에 쌓인 관객 낱말을 읽는다. */
+const SESSION = new URLSearchParams(location.search).get("s") || SESSION_DEFAULT;  // 공연 회차 구분
 const LIVE = !!(SUPABASE_URL && SUPABASE_KEY);
 
 /* ── Supabase REST 호출 ───────────────────────────────────
@@ -1735,6 +1737,12 @@ function scheduleCrowd() {
      부를 수 있어, 안내 음성의 «한 작전에 한 번» 규칙(playVoice)을 여기서만
      비켜 간다. 앞의 소리가 아직 흐르고 있으면 끊고 처음부터 다시 낸다. */
 function warnFlash() {
+  /* ⚠ 배경음악을 먼저 내린다 (2026-08-14). 경고는 이 장면에서 가장 크게 들려야 하는
+     소리인데, 음악이 깔린 채로 사이렌 + 「경고! 경고!」가 겹치면 셋이 뭉개져 대사가
+     안 들린다. 0.7초 페이드로 빠지므로 0.9초 뒤 들어오는 음성 자리가 비어 있다.
+     ⚠ **다시 켜 주지 않는다.** 경고 뒤에 음악이 저절로 돌아오면 진행자가 «껐는데
+       켜졌다» 로 읽는다. 필요하면 3키로 다시 켠다. */
+  bgmStop();
   const v = $("verdict");
   v.className = "verdict show bad warn-blink";
   v.innerHTML = `경 고<div class="sub">우 리 말 을 　 지 켜 　 주 십 시 오</div>`;
@@ -2447,7 +2455,14 @@ function advance() {
 /* ⚠ 여기에 없는 키는 Q-Studio 안에서 «아무 반응이 없다». 핸들러가 멀쩡해도
      조종창이 그 키를 프레임에 넣어 주지 않기 때문이다. 실제로 «-» 를 빠뜨려
      10% 감소가 무대에서만 먹통이었다(2026-08-12). 키를 늘리면 여기도 늘린다. */
-window.cueoutKeys = ["1", "3", "5", "6", "7", "-", "9", "0", "a", "A", "h", "H", "w", "W"];
+/* ⚠ 한글 입력 상태에서도 먹어야 한다. 진행자가 한/영 을 어디에 두고 있는지
+     공연 중에 확인할 방법이 없다 — 글자키는 한글 자리도 같이 받는다.
+     a→ㅁ · w→ㅈ · h→ㅗ. 조종창도 같은 이유로 B(ㅠ)·M(ㅡ) 을 같이 받는다(app.js).
+     숫자키는 한/영 과 무관하므로 그대로다. */
+window.cueoutKeys = ["1", "3", "5", "6", "7", "-", "9", "0",
+                     "a", "A", "ㅁ",      // ㅁ
+                     "h", "H", "ㅗ",      // ㅗ
+                     "w", "W", "ㅈ"];     // ㅈ
 
 document.body.onkeydown = e => {
   if (PHONE_ONLY) return;                          // 관객이 연출을 건드리면 안 된다
@@ -2472,12 +2487,12 @@ document.body.onkeydown = e => {
   else if (k === "-") { onGauge(stepDown); }                     // 10%씩 감소
   else if (k === "9") { onGauge(() => { pinPct(90); keyVoice("9"); }); }  // 90% 고정 + 안내 맨트
   else if (k === "0") { onGauge(() => pinPct(100)); }            // 100% 달성 → 엔딩
-  else if (k === "a" || k === "A") { onGauge(autoPct); }         // 개입 해제
-  else if (k === "h" || k === "H") { $("opbar").classList.toggle("off"); }
+  else if (k === "a" || k === "A" || k === "ㅁ") { onGauge(autoPct); }   // 개입 해제 (ㅁ = a 자리)
+  else if (k === "h" || k === "H" || k === "ㅗ") { $("opbar").classList.toggle("off"); }  // ㅗ = h 자리
   /* W — 관객이 보낸 우리말을 무대에 띄울지 끈다. 익명 접속이라 무엇이 올지
      막을 수 없고, 공개 상연 중 이상한 말이 무대에 뜨면 되돌릴 방법이 없다.
      그때 누를 자리다(눌러도 게이지는 계속 오른다). 필요 없으면 지워도 된다. */
-  else if (k === "w" || k === "W") { showWords = !showWords; showOpBar(); }
+  else if (k === "w" || k === "W" || k === "ㅈ") { showWords = !showWords; showOpBar(); }  // ㅈ = w 자리
 };
 
 setText("hint", "");
