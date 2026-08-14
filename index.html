@@ -1938,10 +1938,21 @@ function confetti(n = 110) {
 
 /* 100% 달성 — 축포를 터뜨리고 1초 뒤 스스로 종료 화면으로 넘어간다.
    진행자가 따로 종료를 누르지 않아도 장면이 닫히게 하려는 것이다. */
+/* ⚠ 팡파르가 «띠용 띠용» 두 번 울리던 자리다 (2026-08-14 고침).
+   0키는 celebrate() → 1초 뒤 finish() 로 이어지는데 **둘 다 fanfare() 를 불렀다.**
+   축포가 터지는 순간과 완료 화면이 뜨는 순간에 각각 한 번씩 난 것이다.
+
+   팡파르는 **축포와 같이** 나야 한다 — 조각이 솟구치는 그림과 소리가 붙어야
+   «터졌다» 로 읽힌다. 그래서 celebrate() 쪽을 남기고 finish() 쪽을 건너뛴다.
+   다만 finish() 는 ← → 로 마지막 단계에 들어올 때도 불리므로 통째로 지우면
+   그 경로가 조용해진다. 그래서 «방금 축포를 쳤는가» 를 표시로 남긴다. */
+let celebrated = false;
+
 function celebrate() {
   confetti();
   boom();
   fanfare();
+  celebrated = true;       // 1초 뒤 finish() 가 팡파르를 다시 내지 않게
   signalFinish();          // 관객 폰에도 같은 엔딩을 띄운다
   later(finish, 1000);
 }
@@ -2037,7 +2048,10 @@ function finish() {
       <span style="font-size:14px;color:var(--text-faint)">— 이어서 「경상도 노래부르기 작전」으로 —</span>
     </p>
     ${EMBEDDED ? "" : `<p style="font-size:12px;color:var(--text-faint)">Space 를 누르면 처음부터 다시</p>`}`;
-  fanfare();
+  /* 0키로 왔다면 1초 전에 축포와 함께 이미 울렸다 — 여기서 또 내지 않는다.
+     ← → 로 마지막 단계에 들어온 경우에만 여기가 팡파르를 맡는다. */
+  if (!celebrated) fanfare();
+  celebrated = false;
   stepVoice(3);                 // «축하드립니다. 한글 에너지 충전 완료!»
   $("phone").innerHTML = `<div class="ph-body"><div class="ph-done"><div class="big">🏮</div>작전 완료!<br>고맙습니데이~</div></div>`;
 }
@@ -2533,6 +2547,7 @@ function resetStage() {
   stopVoice();
   voiceDone.clear();
   finishSignalled = false;   // 되감아 다시 끝내면 폰에도 다시 알린다
+  celebrated = false;        // 축포 표시도 푼다 — 되감은 뒤 팡파르가 빠지면 안 된다
   /* 우리말 모으기도 처음으로 되돌린다 — 되감아 다시 6키를 누르면 판이 새로
      섞여 나온다. 켜진 칸을 그대로 두면 되감은 화면에 지난 회차가 남는다. */
   wordsOpened = false; litCells.clear(); bingoTiles = [];
