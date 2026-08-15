@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -199,14 +199,20 @@
      왼쪽 빙고판 · 오른쪽 낱말 벽. 4:3 스크린에서 세로가 넉넉하므로 좌우로
      갈라 둘 다 크게 보여준다. 크기는 전부 vh 다 — 프로젝터 해상도가 바뀌어도
      비율이 유지되어야 한다(10-3 규칙). */
-  .words { flex: 1; display: flex; gap: 3vh; align-items: stretch; min-height: 0; }
-  .sw-left  { flex: 0 0 46%; display: flex; flex-direction: column; gap: 1.6vh; min-height: 0; }
-  .sw-right { flex: 1; display: flex; flex-direction: column; gap: 1.6vh; min-height: 0; }
+  /* ⚠ 2026-08-14 — 판이 화면 왼쪽 끝에 붙어 있었다. 무대 판은 «벽에 걸린 액자»
+     라야 하는데 여백이 없으면 화면이 잘린 것처럼 보인다. 양옆에 숨 쉴 자리를 주고,
+     칸이 정사각이 되도록 왼쪽 칸의 폭을 넓혔다(6칸 × 세로 높이 = 가로 폭).
+     예전 46% 에서는 칸이 67×78 로 눌린 직사각형이었다. */
+  .words { flex: 1; display: flex; gap: 4vh; align-items: stretch; min-height: 0; padding: 0 2vh; }
+  .sw-left  { flex: 0 0 52%; display: flex; flex-direction: column; gap: 2vh; min-height: 0; }
+  .sw-right { flex: 1; display: flex; flex-direction: column; gap: 2vh; min-height: 0; }
   /* 「말 모 이　판」 제목 — 무대에서 멀리서도 읽히게 크게 (2026-08-14) */
   .sw-cap { font-size: 4.4vh; letter-spacing: .8vh; text-align: center; }
   .sw-board {
     flex: 1; display: grid; grid-template-columns: repeat(6, 1fr);
-    grid-auto-rows: 1fr; gap: .8vh; min-height: 0;
+    grid-auto-rows: 1fr; gap: 1.2vh; min-height: 0;
+    /* 판을 제 칸 안에서 가운데로. 화면비가 달라져도 한쪽으로 쏠리지 않는다 */
+    width: 100%; margin: 0 auto;
   }
   /* ⚠ 2026-08-14 — 글자를 «전부 똑같이 또렷하게» 로 바꿨다.
      예전에는 안 켜진 칸을 30% 로 눌러 두었는데, 무대 판은 관객이 읽으라고
@@ -2081,8 +2087,7 @@ function finish() {
       ${p >= 100
         ? "여러분의 입이 원고를 전부 되살렸습니다."
         : `나머지 ${100 - p}%는… 여러분의 입으로 이어 주십시오.`}<br>
-      와우, 여러분은 경상도 토박이시군요!<br><br>
-      <span style="font-size:14px;color:var(--text-faint)">— 이어서 「경상도 노래부르기 작전」으로 —</span>
+      와우, 여러분은 경상도 토박이시군요!
     </p>
     ${EMBEDDED ? "" : `<p style="font-size:12px;color:var(--text-faint)">Space 를 누르면 처음부터 다시</p>`}`;
   /* 0키로 왔다면 1초 전에 축포와 함께 이미 울렸다 — 여기서 또 내지 않는다.
@@ -2135,14 +2140,13 @@ function renderPhoneLobby() {
   $("phone").innerHTML = `
     <div class="ph-head"><div class="ph-top">말모이 작전 · 1942 경성</div></div>
     <div class="ph-body ph-landing">
-      <div class="sec-title neon" style="font-size:26px">말 모 이 　 작 전</div>
+      <div class="sec-title neon" style="font-size:26px;text-align:center">말 모 이 　 작 전</div>
       <button class="ph-art" id="phArt" aria-label="작전 시작">
         <img src="landing.jpg" alt="말모이 작전" width="900" height="1342"
              onerror="this.closest('.ph-art').remove()">
       </button>
       <div class="ph-lead">
         접속 완료!<br>
-        <b>그림이나 아래 버튼</b>을 누르면 시작합니다.<br>
         <b style="color:var(--cyan)">🔈 소리를 켜 주세요</b> — 작전 지령이 폰으로 옵니다<br>
         <span style="font-size:.85em;color:var(--text-faint)">순사에게 들키지 않도록 조용히 수행해 주세요</span>
       </div>
