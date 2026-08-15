@@ -223,12 +223,12 @@
     display: flex; align-items: center; justify-content: center;
     border: .2vh solid var(--line); border-radius: .9vh;
     background: rgba(11,28,60,.85); color: var(--text);
-    /* 판 글자 — 2026-08-16 에 4vh → 6.4vh 로 키웠다. 객석 뒤에서도 읽혀야 하고,
-       칸 안이 휑하지 않게 «박스를 채우는» 크기다.
+    /* 판 글자 — 2026-08-16 에 4vh → 5.2vh. 객석 뒤에서도 읽히면서 칸을 꽉 채우지는
+       않는 크기다. 6.4vh 까지 키워 봤으나 «너무 크다» 로 되돌렸다 — 다시 올리지 말 것.
        ⚠ vh 를 유지할 것. px 로 박으면 프로젝터 해상도가 바뀌는 순간 어긋난다.
-       ⚠ line-height 를 1 로 눌러야 글자가 칸 한가운데에 꽉 앉는다 — 기본값이면
-         위아래 여백이 붙어 실제보다 작아 보인다. */
-    font-size: 6.4vh; line-height: 1; font-weight: 800;
+       ⚠ line-height 1 은 남긴다. 기본값이면 위아래 여백이 붙어 글자가 칸 위쪽으로
+         밀리고, 칸이 정사각으로 안 잡힌다. */
+    font-size: 5.2vh; line-height: 1; font-weight: 800;
     text-shadow: 0 0 1.2vh rgba(34,224,240,.45);
     transition: all .35s ease;
   }
