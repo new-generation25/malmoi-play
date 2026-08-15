@@ -280,23 +280,44 @@
      transform 대신 bottom 을 애니메이션하는 것은 «전체 높이 기준» 을 지키기 위해서다.
      translateY 의 % 는 부모가 아니라 «제 몸 높이» 기준이라 쓸 수 없다.
      알갱이는 BUBBLE_MAX(14) 로 막혀 있어 레이아웃 부담은 없다. */
+  /* 응답 1건 = «반짝이는 별» 하나 (2026-08-15).
+     처음엔 가운데가 흰 방사형 구슬로 만들었는데 **3D 공처럼 보였다** — 무대 그림이
+     네온 사인보드라 입체감이 겉돌았다. 지금은 4갈래 반짝이(sparkle)다.
+
+     ⚠ 크기는 vh 다 — 15px 로 박혀 있었다. 프로젝터 해상도가 커지면 점처럼 사라진다.
+     ⚠ clip-path 로 오려낸 모양에는 box-shadow 가 안 먹는다(사각형 기준으로 그려져
+       잘려 나간다). 발광은 **모양을 따라가는 drop-shadow** 로 준다.
+     ⚠ 그 drop-shadow 를 twinkle 키프레임 «안에» 넣어야 한다. filter 는 통째로
+       갈리므로, 키프레임에서 빠뜨리면 반짝이는 동안 발광이 사라진다.
+     ⚠ 색은 --spark 하나로 가른다. 오답은 시안, 정답은 마젠타. */
   .bubble {
+    --spark: 34, 224, 240;                    /* 오답 — 시안 */
     position: absolute; bottom: 20%;
-    width: 15px; height: 15px; border-radius: 50%;
-    background: rgba(34,224,240,.30);        /* 오답 — 시안 알갱이 */
-    border: 1px solid rgba(34,224,240,.65);
-    box-shadow: 0 0 16px rgba(34,224,240,.5);
-    animation: rise 2.6s ease-out forwards;
+    width: 3.4vh; height: 3.4vh; border-radius: 0;
+    clip-path: polygon(50% 0%, 61% 39%, 100% 50%, 61% 61%,
+                       50% 100%, 39% 61%, 0% 50%, 39% 39%);
+    background: radial-gradient(circle, #fff 0%, rgba(var(--spark),1) 42%, rgba(var(--spark),.9) 100%);
+    border: none; box-shadow: none;
+    animation: rise 2.6s ease-out forwards, twinkle .7s ease-in-out infinite;
     pointer-events: none;
   }
-  .bubble.hit {
-    background: rgba(var(--glow),.55); border-color: var(--gold);
-    box-shadow: 0 0 22px rgba(var(--glow),.75);
+  .bubble.hit {                               /* 정답 — 마젠타 · 한 뼘 더 크게 */
+    --spark: var(--glow);
+    width: 4.4vh; height: 4.4vh;
+  }
+  @keyframes twinkle {
+    0%, 100% { filter: drop-shadow(0 0 .7vh rgba(var(--spark),.95))
+                       drop-shadow(0 0 2.4vh rgba(var(--spark),.5))  brightness(1); }
+    50%      { filter: drop-shadow(0 0 1.4vh rgba(var(--spark),1))
+                       drop-shadow(0 0 4.4vh rgba(var(--spark),.75)) brightness(1.5); }
   }
   /* 관객이 보낸 «아름다운 우리말» — 알갱이가 아니라 글자가 떠오른다.
      퀴즈 답은 여기로 오지 않는다(popBubble 설명 참고).
      ⚠ 알갱이용 15px 고정 폭을 풀지 않으면 글자가 한 자씩 세로로 쌓인다. */
   .bubble.word {
+    /* ⚠ 별 모양 오려내기를 반드시 푼다 — 안 풀면 글자가 별 안쪽만 남고 잘려 사라진다.
+       .bubble 의 clip-path 는 상속이 아니라 같은 요소에 걸린 것이라 여기서 꺼야 한다. */
+    clip-path: none;
     width: auto; height: auto; border-radius: 999px;
     padding: 1.3vh 2.6vh; white-space: nowrap;
     font-size: 4vh; font-weight: 800; color: #fff;
@@ -326,11 +347,14 @@
   /* 20% 에서 떠서 «뿅» 하고 커졌다가 70% 까지 오르며 흐려진다.
      초반 두 마디(14%·24%)는 «뿅» 을 위한 것이라 조금만 올라간다 — 옛 픽셀 값의
      이동 비율(14/190·24/190)을 그대로 %로 옮겼다. */
+  /* 별이 «뿅» 터지며 살짝 돌면서 오른다. 회전은 rise 의 transform 안에 같이 적는다 —
+     따로 걸면 둘 중 나중 것이 이겨 한쪽이 통째로 죽는다. */
   @keyframes rise {
-    0%   { bottom: 20%;   transform: scale(.4);  opacity: 0; }
-    14%  { bottom: 23.5%; transform: scale(1.12); opacity: 1; }
-    24%  { bottom: 26%;   transform: scale(1);   opacity: 1; }
-    100% { bottom: 70%;   transform: scale(.9);  opacity: 0; }
+    0%   { bottom: 20%;   transform: scale(.2)  rotate(-60deg); opacity: 0; }
+    14%  { bottom: 23.5%; transform: scale(1.5) rotate(0deg);   opacity: 1; }   /* 「뿅」 */
+    24%  { bottom: 26%;   transform: scale(1)   rotate(8deg);   opacity: 1; }
+    70%  { bottom: 51%;   transform: scale(1.1) rotate(40deg);  opacity: .9; }
+    100% { bottom: 70%;   transform: scale(.6)  rotate(90deg);  opacity: 0; }
   }
 
   /* 큰 복원율 숫자 */
@@ -366,7 +390,11 @@
     display: flex; align-items: flex-end;    /* 채움을 바닥에 붙인다 */
   }
   .gauge-fill {
-    width: 100%; height: 0%; border-radius: 44px;
+    /* ⚠ 2026-08-15 — 윗면을 «평평하게» 바꿨다. 예전에는 border-radius 44px 이라
+       채움 자체가 알약 모양이었고, 그 둥근 머리가 «수면» 이 아니라 «공» 으로 보였다.
+       기둥 아래쪽 둥근 모서리는 .gauge-track 의 overflow:hidden 이 알아서 깎아 준다 —
+       여기서 굴릴 필요가 없다. */
+    width: 100%; height: 0%; border-radius: 0;
     /* 핑크 네온관 하나. 시안→핑크→골드로 섞던 것을 걷어냈다 —
        색이 섞이면 «얼마나 찼는지» 보다 «무슨 색인지» 가 먼저 읽힌다. */
     background: var(--magenta);
@@ -1305,7 +1333,22 @@ function replayVoice(key) {
    무대 것과 따로 둔다. 무대는 «단계» 가 방아쇠라 되감기·중간 단계 삼키기
    같은 규칙이 붙지만, 폰은 그 사람의 화면이 넘어갈 때 한 번 나면 그만이다.
    섞으면 두 규칙이 서로를 망친다. */
-const phoneVoiceEls = {};
+/* ══ 폰 음성은 «요소 하나» 로 돌린다 (2026-08-15 재설계) ══════════════
+   요소를 음성마다 따로 두던 것을 접었다. 아이폰에서 2·3번 소리가 안 났기 때문이다.
+
+   왜 요소가 여러 개면 안 되나 — iOS 는 «손짓 안에서 재생해 본 요소» 만 나중에 코드로
+   틀 수 있다. 그래서 첫 탭에서 나머지 요소를 **음소거로 살짝 틀어** 잠금을 푸는 수를
+   썼는데, iOS 는 «음소거 재생» 을 자유롭게 허용하는 대신 **나중에 음소거를 푸는 것을
+   다시 막는다.** 결국 2·3번은 잠긴 채로 남는다. 음소거를 곧바로 되돌리면 이번엔
+   pause 가 늦게 먹는 찰나에 **셋이 한꺼번에 터졌다.** 두 증상이 같은 뿌리다.
+
+   요소가 하나면 —
+     ㅇ 첫 탭에서 그 하나를 «소리 내어» 틀므로 **그 순간 영구히 열린다**.
+       뒤 음성은 src 만 갈아 끼우면 되고, 잠금 해제라는 개념 자체가 사라진다
+     ㅇ 하나는 한 번에 하나만 재생한다 — **겹치는 것이 구조적으로 불가능하다**
+   ⚠ 그러니 요소를 다시 여러 개로 늘리지 말 것. 두 증상이 함께 돌아온다. */
+const phoneVoiceSrc = {};              // 이름 → 주소(미리 받아 둔 것)
+let phoneVoiceEl = null;               // 폰 음성 재생기 — 딱 하나
 let phoneVoiceNow = null;
 /* ⚠ «지금 나가는 중인가» 를 `paused` 로 판정하면 안 된다 (2026-08-15 재수정).
    데스크톱은 play() 가 불리는 즉시 paused 가 false 가 되지만, **폰에서는 파일이
@@ -1319,60 +1362,46 @@ let phoneChainTimer = null;            // 이어 틀기 안전장치
 
 /* 접속 직후 미리 받아 둔다. 방아쇠가 당겨진 뒤에 내려받으면 말이 늦게
    나오고, 극장 와이파이로 수백 대가 한꺼번에 받으면 더 늦는다. */
-function preloadPhoneVoices() {
-  if (!PHONE_ONLY) return;
-  for (const k in PHONE_VOICES) phoneVoiceEl(k);
-}
-function phoneVoiceEl(k) {
-  if (!phoneVoiceEls[k]) {
-    const a = new Audio(VOICE_DIR + PHONE_VOICES[k].file);
+/* 재생기 하나를 만들어 둔다. 첫 탭에서 이것으로 소리를 내면 그 순간 열린다. */
+function phoneVoicePlayer() {
+  if (!phoneVoiceEl) {
+    const a = new Audio();
     a.preload = "auto";
-    a.volume = PHONE_VOICE_VOL;
+    a.volume = PHONE_VOICE_VOL;      // ⚠ iOS 에서는 volume 이 안 먹는다(항상 1). 다른 데서는 먹는다
     /* «끝났는가» 를 우리가 직접 들고 있는다 — paused 로 판정하면 폰에서 어긋난다.
        addEventListener 라 아래 이어 틀기(onended)와 부딪히지 않는다. */
-    a.addEventListener("ended", () => { if (phoneVoiceNow === a) phoneVoiceDone = true; });
-    phoneVoiceEls[k] = a;
+    a.addEventListener("ended", () => { phoneVoiceDone = true; });
+    phoneVoiceEl = a;
   }
-  return phoneVoiceEls[k];
+  return phoneVoiceEl;
 }
-/* 아이폰은 «손짓으로 재생해 본 적 있는» 요소만 나중에 코드로 틀 수 있다.
-   첫 탭(작전 시작) 안에서 나머지 요소들을 음소거로 살짝 틀었다 세워 잠금을 푼다.
-   except = 지금 진짜로 틀 것 — 얘는 건드리면 본 재생이 끊긴다 (2026-08-15).
 
-   ⚠ **여기서 음소거를 풀지 않는다** (2026-08-15 재수정). 예전에는 pause() 한 뒤
-     곧바로 muted=false 로 되돌렸는데, 폰에서는 pause 가 실제로 먹기까지 잠깐 걸린다.
-     그 찰나에 음소거가 풀려 **세 음성이 한꺼번에 터졌다**(실제 관객 폰 증상).
-     잠금 해제용 재생은 «영원히 음소거» 로 두고, 진짜로 틀 때 playPhoneVoice 가
-     그때 딱 한 번 푼다. 그러면 정지가 늦게 먹어도 소리가 샐 자리가 없다. */
-function unlockPhoneVoices(except) {
+/* 접속 직후 미리 받아 둔다. 방아쇠가 당겨진 뒤에 내려받으면 말이 늦게
+   나오고, 극장 와이파이로 수백 대가 한꺼번에 받으면 더 늦는다.
+   ⚠ 여기서 재생하지 않는다 — 받아서 브라우저 캐시에 얹어 두기만 한다.
+     재생기는 하나뿐이고, 그것을 여는 것은 관객의 첫 탭이다. */
+async function preloadPhoneVoices() {
+  if (!PHONE_ONLY) return;
   for (const k in PHONE_VOICES) {
-    if (k === except) continue;
-    const a = phoneVoiceEl(k);
-    if (a.__unlocked) continue;
-    a.__unlocked = true;
-    a.muted = true;                                   // ← 여기서 푼 적 없다
-    const stop = () => { try { a.pause(); a.currentTime = 0; } catch (e) {} };
-    const p = a.play();
-    if (p && p.then) p.then(stop).catch(() => { a.__unlocked = false; });
-    else stop();
+    const url = VOICE_DIR + PHONE_VOICES[k].file;
+    phoneVoiceSrc[k] = url;
+    try { await fetch(url, { cache: "force-cache" }); }
+    catch (e) { /* 못 받아도 그때 가서 직접 받는다 — 화면은 안 멈춘다 */ }
   }
 }
+
 function playPhoneVoice(k) {
   if (!PHONE_ONLY || !PHONE_VOICES[k]) return;
   /* 예약해 둔 «이어 틀기» 가 있으면 무른다 — 지금 새 말이 자리를 가져간다 */
   if (phoneChainTimer) { clearTimeout(phoneChainTimer); phoneChainTimer = null; }
-  /* 앞 말을 끊고 자리를 넘겨받는다 — 폰 화면은 관객이 빠르게 넘길 수 있어
-     안내가 겹치면 둘 다 안 들린다. */
-  if (phoneVoiceNow) {
-    phoneVoiceNow.onended = null;
-    try { phoneVoiceNow.pause(); phoneVoiceNow.currentTime = 0; } catch (e) {}
-  }
-  const a = phoneVoiceEl(k);
-  a.muted = false;                    // 잠금 해제로 음소거된 채 남아 있던 것을 여기서 푼다
+  const a = phoneVoicePlayer();
+  a.onended = null;                                   // 앞서 걸어 둔 이어 틀기 해제
+  try { a.pause(); } catch (e) {}
   phoneVoiceNow = a;
   phoneVoiceKey = k;
   phoneVoiceDone = false;
-  try { a.currentTime = 0; } catch (e) {}
+  a.src = phoneVoiceSrc[k] || (VOICE_DIR + PHONE_VOICES[k].file);
+  try { a.currentTime = 0; } catch (e) {}             // src 를 갈면 어차피 0 이다
   const p = a.play();
   /* 파일이 아직 없거나(굽기 전) 무음 스위치로 막혀도 화면은 그대로 간다 */
   if (p && p.catch) p.catch(e => { phoneVoiceDone = true; auWarn("폰 안내 음성", k, e); });
@@ -2252,7 +2281,10 @@ function phoneStart() {
      이 손짓 안에서 잠금을 푼다. */
   armAudio();
   try { audio(); } catch (e) {}
-  unlockPhoneVoices("참여감사");     // 이 손짓 안에서 뒤 음성들(연습시작·비밀요원)의 잠금까지 푼다
+  /* ⚠ 잠금 해제(unlockPhoneVoices)는 없앴다 (2026-08-15). 폰 음성은 재생기 «하나» 로
+     돌기 때문에, 지금 이 손짓 안에서 소리를 내는 것 자체가 곧 잠금 해제다.
+     뒤 음성(연습시작·비밀요원)은 같은 재생기에 src 만 갈아 끼우므로 따로 풀 것이 없다.
+     여러 요소를 미리 풀어 두는 옛 방식은 아이폰에서 2·3번이 안 났다 — 되돌리지 말 것. */
   playPhoneVoice("참여감사");        // «참여하신 여러분 감사합니다 …조용히 수행해 주세요»
   startPlay();
 }
