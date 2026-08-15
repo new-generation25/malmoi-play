@@ -2615,8 +2615,15 @@ function phoneFinish() {
   phoneScreen = "end";                     // 두 번 터지지 않게
   phase = "end";
   if (phoneWatcher) { clearInterval(phoneWatcher); phoneWatcher = null; }
-  /* 흐르던 지령을 끊는다 — 작전이 끝난 화면 위로 앞의 말이 계속 흐르면 사고다 */
-  if (phoneVoiceNow) { try { phoneVoiceNow.pause(); } catch (e) {} phoneVoiceNow = null; }
+  /* 흐르던 지령을 끊는다 — 작전이 끝난 화면 위로 앞의 말이 계속 흐르면 사고다.
+     ⚠ «예약» 도 함께 무른다 (2026-08-15). 이어 틀기(onended)와 9초 안전장치가 살아
+       있으면, 비밀요원이 나가는 도중에 앞 예약이 깨어나 말이 겹친다. */
+  if (phoneChainTimer) { clearTimeout(phoneChainTimer); phoneChainTimer = null; }
+  if (phoneVoiceNow) {
+    phoneVoiceNow.onended = null;
+    try { phoneVoiceNow.pause(); } catch (e) {}
+    phoneVoiceNow = null;
+  }
   $("phone").innerHTML = `
     <div class="ph-head"><div class="ph-top">말모이 작전 · 완료</div></div>
     <div class="ph-body">
