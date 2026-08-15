@@ -223,7 +223,12 @@
     display: flex; align-items: center; justify-content: center;
     border: .2vh solid var(--line); border-radius: .9vh;
     background: rgba(11,28,60,.85); color: var(--text);
-    font-size: 4vh; font-weight: 800;
+    /* 판 글자 — 2026-08-16 에 4vh → 6.4vh 로 키웠다. 객석 뒤에서도 읽혀야 하고,
+       칸 안이 휑하지 않게 «박스를 채우는» 크기다.
+       ⚠ vh 를 유지할 것. px 로 박으면 프로젝터 해상도가 바뀌는 순간 어긋난다.
+       ⚠ line-height 를 1 로 눌러야 글자가 칸 한가운데에 꽉 앉는다 — 기본값이면
+         위아래 여백이 붙어 실제보다 작아 보인다. */
+    font-size: 6.4vh; line-height: 1; font-weight: 800;
     text-shadow: 0 0 1.2vh rgba(34,224,240,.45);
     transition: all .35s ease;
   }
@@ -794,11 +799,14 @@
       <div class="sw-left">
         <div class="sw-cap neon">말 모 이　판</div>
         <div class="sw-board" id="swBoard"></div>
-        <div class="sw-count"><b id="swLit">0</b> / <span id="swTotal">31</span> 글자를 되찾았습니다</div>
       </div>
       <div class="sw-right">
         <div class="sw-cap neon cyan">여 러 분 이　보 낸　우 리 말</div>
         <div class="sw-wall" id="swWall"></div>
+        <!-- ⚠ 2026-08-16 — 판 아래에 있던 «4 / 31 글자를 되찾았습니다» 를 없앴다.
+             분수는 관객에게 «몇 개 남았나» 를 계산하게 만든다. 지금은 오른쪽 벽
+             아래에서 «모은 낱말 수» 하나만 센다. -->
+        <div class="sw-count"><b id="swWords">0</b>개의 낱말을 모았습니다</div>
       </div>
     </div>
 
@@ -1936,7 +1944,8 @@ function warnFlash() {
    ⚠ 사석 다섯 칸은 어느 낱말에도 없는 글자라 **영영 켜지지 않는다.** 그래서
      «31 글자» 를 세어 보여준다 — 36 으로 세면 영원히 채워지지 않는다. */
 let bingoTiles = [];                    // [{ch, dead}] 36칸
-let litCells = new Set();               // 켜진 칸 번호
+let litCells = new Set();               // 켜진 칸 번호 (판을 켜는 데만 쓴다 — 화면에 숫자로 안 보여준다)
+let wordsCount = 0;                     // 관객이 보낸 «낱말» 이 몇 개 도착했나
 let wordsOpened = false;                // 6키를 이미 눌렀나
 
 const bgShuffle = a => {
@@ -1988,8 +1997,23 @@ function openWords() {
     board.appendChild(c);
   });
   $("swWall").innerHTML = "";
-  $("swTotal").textContent = bingoTiles.filter(t => !t.dead).length;
-  $("swLit").textContent = "0";
+  /* ⚠ «전체 낱말 수» 를 센다 — 6키를 누른 뒤 도착한 것만이 아니다.
+     그 회차에 이미 쌓인 낱말을 서버에서 받아 그 수부터 시작한다. 이유가 둘이다.
+       ㅇ 무대 화면은 큐를 GO 할 때마다 새로 뜬다. 그때마다 0 부터 세면 숫자가 되돌아간다
+       ㅇ 6키를 다시 눌러 늦은 폰을 주울 때도 숫자가 리셋되면 안 된다
+     못 받아도 화면은 진행한다 — 그 경우 0 부터 센다. */
+  wordsCount = 0;
+  $("swWords").textContent = "0";
+  if (LIVE) {
+    db(`answers?session=eq.${SESSION}&qi=eq.${QI_WORD}&select=id`,
+       { headers: { Prefer: "count=exact", Range: "0-0" } })
+      .then(r => {
+        const cr = r.headers.get("content-range");        // 예: "0-0/37"
+        const n = cr && +cr.split("/")[1];
+        if (Number.isFinite(n)) { wordsCount = n; $("swWords").textContent = n; }
+      })
+      .catch(e => console.warn("낱말 수 읽기 실패:", e.message));
+  }
   showPane("words");
   $("counter").textContent = "우리말을 모으는 중";
   showOpBar();
@@ -2017,7 +2041,11 @@ function addWord(text) {
       }
     });
   }
-  $("swLit").textContent = litCells.size;
+  /* ⚠ 세는 것은 «도착한 낱말 수» 다 — 벽에 붙은 요소 수가 아니다.
+     벽은 60개가 넘으면 오래된 것부터 걷어내고, W 로 노출을 끄면 아예 안 붙는다.
+     요소를 세면 그 두 경우에 숫자가 줄거나 멈춘다. */
+  wordsCount++;
+  $("swWords").textContent = wordsCount;
 
   if (showWords) {
     const wall = $("swWall");
@@ -2770,8 +2798,9 @@ function resetStage() {
   celebrated = false;        // 축포 표시도 푼다 — 되감은 뒤 팡파르가 빠지면 안 된다
   /* 우리말 모으기도 처음으로 되돌린다 — 되감아 다시 6키를 누르면 판이 새로
      섞여 나온다. 켜진 칸을 그대로 두면 되감은 화면에 지난 회차가 남는다. */
-  wordsOpened = false; litCells.clear(); bingoTiles = [];
+  wordsOpened = false; litCells.clear(); bingoTiles = []; wordsCount = 0;
   $("swBoard").innerHTML = ""; $("swWall").innerHTML = "";
+  if ($("swWords")) $("swWords").textContent = "0";
   phase = "lobby"; anchor = null; pinned = null; clickStep = 0;
   showPane("title");                      // 0단계 = 타이틀
   $("joinBox").style.display = "none";    // 타이틀에는 접속 인원도 없다
