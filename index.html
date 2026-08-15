@@ -273,8 +273,15 @@
   @keyframes wdpop { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
 
   .bubble-field { position: absolute; inset: 0; overflow: hidden; }
+  /* ⚠ 2026-08-15 — 출발선을 바닥에서 «무대 높이의 20%» 로 올리고, 70% 까지 오른다.
+     예전에는 바닥(0)에서 떠서 -190px 만큼 올라갔는데 **픽셀이 박혀 있어**
+     프로젝터 해상도가 바뀌면 오르는 높이가 달라졌다(이 파일의 10-3 규칙 위반).
+     bottom 을 %로 움직이므로 부모(.stage) 높이에 비례한다 — 어떤 화면에서도 20%→70%.
+     transform 대신 bottom 을 애니메이션하는 것은 «전체 높이 기준» 을 지키기 위해서다.
+     translateY 의 % 는 부모가 아니라 «제 몸 높이» 기준이라 쓸 수 없다.
+     알갱이는 BUBBLE_MAX(14) 로 막혀 있어 레이아웃 부담은 없다. */
   .bubble {
-    position: absolute; bottom: 0;
+    position: absolute; bottom: 20%;
     width: 15px; height: 15px; border-radius: 50%;
     background: rgba(34,224,240,.30);        /* 오답 — 시안 알갱이 */
     border: 1px solid rgba(34,224,240,.65);
@@ -316,11 +323,14 @@
     70%  { transform: translateY(-14vh) scale(1); opacity: 1; }
     100% { transform: translateY(-26vh) scale(.94); opacity: 0; }
   }
+  /* 20% 에서 떠서 «뿅» 하고 커졌다가 70% 까지 오르며 흐려진다.
+     초반 두 마디(14%·24%)는 «뿅» 을 위한 것이라 조금만 올라간다 — 옛 픽셀 값의
+     이동 비율(14/190·24/190)을 그대로 %로 옮겼다. */
   @keyframes rise {
-    0%   { transform: translateY(0) scale(.4); opacity: 0; }
-    14%  { transform: translateY(-14px) scale(1.12); opacity: 1; }
-    24%  { transform: translateY(-24px) scale(1); opacity: 1; }
-    100% { transform: translateY(-190px) scale(.9); opacity: 0; }
+    0%   { bottom: 20%;   transform: scale(.4);  opacity: 0; }
+    14%  { bottom: 23.5%; transform: scale(1.12); opacity: 1; }
+    24%  { bottom: 26%;   transform: scale(1);   opacity: 1; }
+    100% { bottom: 70%;   transform: scale(.9);  opacity: 0; }
   }
 
   /* 큰 복원율 숫자 */
@@ -946,9 +956,24 @@ async function db(path, opts = {}) {
       ...(opts.headers || {}),
     },
   });
+  syncServerClock(res);
   if (!res.ok) throw new Error(path + " → " + res.status + " " + (await res.text()).slice(0, 120));
   return res;
 }
+
+/* ── 서버 시계 맞추기 ─────────────────────────────────────
+   «1시간 이내 접속만 센다» 를 판정하려면 «지금» 이 필요한데, **무대 PC 시계를
+   쓰면 안 된다.** 몇 분만 어긋나도 접속이 통째로 새거나 묻힌다(개요 4-0 참고).
+   응답 헤더의 Date 는 곧 DB 앞단의 시계다 — 그것으로 우리 시계와의 차이를 잡아 둔다.
+   Date 헤더는 초 단위라 ±1초 오차가 있지만, 60분 창에는 아무 영향이 없다. */
+let serverSkew = 0;                       // 서버시각 − 이 PC 시각 (ms)
+function syncServerClock(res) {
+  const d = res && res.headers && res.headers.get("date");
+  if (!d) return;
+  const t = Date.parse(d);
+  if (!isNaN(t)) serverSkew = t - Date.now();
+}
+function serverNow() { return Date.now() + serverSkew; }
 
 /* ── 대본 2막 씬2 "경상도 말모이 작전" 문제 ───────────────
    2026-08-08 대본 최신본에 맞춤. 고칠 때 대본과 어긋나기 쉬운 곳:
@@ -1048,6 +1073,22 @@ const MAX_PCT = 90;                    // 실집계가 자연히 수렴하는 �
    떨어뜨리는 것은 진행자의 «−» 뿐이고, 그것은 목표값이 아니라 «지금 값에서
    10%» 다. 5키(경고)는 게이지를 아예 건드리지 않는다. */
 const HALF = 50;                       // 응답 이만큼 모이면 상한의 절반에 도달
+
+/* ── 접속 인원을 세는 시간 창 (2026-08-15 신설) ─────────────
+   «최근 이만큼 안에 들어온 관객만 센다.» 이보다 오래된 접속은 **다른 회차**로 본다.
+
+   왜 필요했나 — 접속은 회차(`?s=`)로만 갈랐는데, 리허설도 본공연도 같은 `s=1` 이라
+   며칠 전 시험 기기가 그대로 얹혔다. 2026-08-15 실측에서 «접속 6명» 이 떴고
+   그 여섯은 08-09·08-12(2)·08-13·08-15 오전(2) 의 시험 기기였다.
+
+   ⚠ 지우는 방식은 못 쓴다. RLS 에 DELETE 정책이 없어 PostgREST 가 **204 를 돌려주며
+     0행을 지운다** — 성공한 척하고 아무 일도 안 일어난다(개요 4-0). 그래서 «안 세는» 쪽이다.
+   ⚠ 기준점(takeBaseline) 방식으로도 못 푼다. Q-Studio 는 큐를 GO 할 때마다 iframe 을
+     새로 띄우는데, 그때 기준점이 다시 잡혀 **이미 접속한 관객이 통째로 0 이 된다**
+     (2026-08-13 에 그래서 뺐다). 시간 창은 다시 떠도 값이 유지된다.
+   ⚠ 「30분」 규칙이 `_tools\우리말_모음.html` 에 따로 있다 — 그것은 공연 뒤 낱말을
+     모아 보는 도구의 기준이고, 여기(무대 실시간 집계)와는 다른 자리다. */
+const JOIN_WINDOW_MIN = 60;            // 분. 이보다 오래된 접속은 지난 회차로 친다
 
 let phase = "lobby";     // lobby | play | end
 let qi = 0;              // 내 폰의 현재 문제
@@ -1266,6 +1307,15 @@ function replayVoice(key) {
    섞으면 두 규칙이 서로를 망친다. */
 const phoneVoiceEls = {};
 let phoneVoiceNow = null;
+/* ⚠ «지금 나가는 중인가» 를 `paused` 로 판정하면 안 된다 (2026-08-15 재수정).
+   데스크톱은 play() 가 불리는 즉시 paused 가 false 가 되지만, **폰에서는 파일이
+   아직 안 열렸으면 잠깐 paused 가 true 로 남는다.** 그 찰나에 다음 화면이 뜨면
+   «앞 말이 안 나가고 있다» 고 잘못 읽어 연습시작을 바로 틀어 버리고, 뒤늦게
+   참여감사가 시작되어 **둘이 겹쳐 들린다**(실제 관객 폰에서 그렇게 났다).
+   그래서 «무엇을 틀기로 했는가(Key)» 와 «끝났는가(Done)» 를 우리가 직접 들고 있는다. */
+let phoneVoiceKey = null;              // 지금 틀기로 한 음성 이름
+let phoneVoiceDone = true;             // 그 음성이 끝까지 나갔는가
+let phoneChainTimer = null;            // 이어 틀기 안전장치
 
 /* 접속 직후 미리 받아 둔다. 방아쇠가 당겨진 뒤에 내려받으면 말이 늦게
    나오고, 극장 와이파이로 수백 대가 한꺼번에 받으면 더 늦는다. */
@@ -1278,37 +1328,54 @@ function phoneVoiceEl(k) {
     const a = new Audio(VOICE_DIR + PHONE_VOICES[k].file);
     a.preload = "auto";
     a.volume = PHONE_VOICE_VOL;
+    /* «끝났는가» 를 우리가 직접 들고 있는다 — paused 로 판정하면 폰에서 어긋난다.
+       addEventListener 라 아래 이어 틀기(onended)와 부딪히지 않는다. */
+    a.addEventListener("ended", () => { if (phoneVoiceNow === a) phoneVoiceDone = true; });
     phoneVoiceEls[k] = a;
   }
   return phoneVoiceEls[k];
 }
 /* 아이폰은 «손짓으로 재생해 본 적 있는» 요소만 나중에 코드로 틀 수 있다.
-   첫 탭(작전 시작) 안에서 나머지 요소들을 음소거로 살짝 틀었다 꺼서 잠금을 푼다.
-   except = 지금 진짜로 틀 것 — 얘는 건드리면 본 재생이 끊긴다 (2026-08-15). */
+   첫 탭(작전 시작) 안에서 나머지 요소들을 음소거로 살짝 틀었다 세워 잠금을 푼다.
+   except = 지금 진짜로 틀 것 — 얘는 건드리면 본 재생이 끊긴다 (2026-08-15).
+
+   ⚠ **여기서 음소거를 풀지 않는다** (2026-08-15 재수정). 예전에는 pause() 한 뒤
+     곧바로 muted=false 로 되돌렸는데, 폰에서는 pause 가 실제로 먹기까지 잠깐 걸린다.
+     그 찰나에 음소거가 풀려 **세 음성이 한꺼번에 터졌다**(실제 관객 폰 증상).
+     잠금 해제용 재생은 «영원히 음소거» 로 두고, 진짜로 틀 때 playPhoneVoice 가
+     그때 딱 한 번 푼다. 그러면 정지가 늦게 먹어도 소리가 샐 자리가 없다. */
 function unlockPhoneVoices(except) {
   for (const k in PHONE_VOICES) {
     if (k === except) continue;
     const a = phoneVoiceEl(k);
     if (a.__unlocked) continue;
     a.__unlocked = true;
-    a.muted = true;
-    const done = () => { try { a.pause(); a.currentTime = 0; } catch (e) {} a.muted = false; };
+    a.muted = true;                                   // ← 여기서 푼 적 없다
+    const stop = () => { try { a.pause(); a.currentTime = 0; } catch (e) {} };
     const p = a.play();
-    if (p && p.then) p.then(done).catch(() => { a.muted = false; a.__unlocked = false; });
-    else done();
+    if (p && p.then) p.then(stop).catch(() => { a.__unlocked = false; });
+    else stop();
   }
 }
 function playPhoneVoice(k) {
   if (!PHONE_ONLY || !PHONE_VOICES[k]) return;
+  /* 예약해 둔 «이어 틀기» 가 있으면 무른다 — 지금 새 말이 자리를 가져간다 */
+  if (phoneChainTimer) { clearTimeout(phoneChainTimer); phoneChainTimer = null; }
   /* 앞 말을 끊고 자리를 넘겨받는다 — 폰 화면은 관객이 빠르게 넘길 수 있어
      안내가 겹치면 둘 다 안 들린다. */
-  if (phoneVoiceNow) { try { phoneVoiceNow.pause(); phoneVoiceNow.currentTime = 0; } catch (e) {} }
+  if (phoneVoiceNow) {
+    phoneVoiceNow.onended = null;
+    try { phoneVoiceNow.pause(); phoneVoiceNow.currentTime = 0; } catch (e) {}
+  }
   const a = phoneVoiceEl(k);
+  a.muted = false;                    // 잠금 해제로 음소거된 채 남아 있던 것을 여기서 푼다
   phoneVoiceNow = a;
+  phoneVoiceKey = k;
+  phoneVoiceDone = false;
   try { a.currentTime = 0; } catch (e) {}
   const p = a.play();
   /* 파일이 아직 없거나(굽기 전) 무음 스위치로 막혀도 화면은 그대로 간다 */
-  if (p && p.catch) p.catch(e => auWarn("폰 안내 음성", k, e));
+  if (p && p.catch) p.catch(e => { phoneVoiceDone = true; auWarn("폰 안내 음성", k, e); });
 }
 
 function beep(freq, dur = 0.05, vol = 0.05, type = "triangle") {
@@ -1737,11 +1804,15 @@ async function poll() {
     }
     if (phase === "play" && !rows.length) paintGauge();
 
-    /* 접속 인원 — 그 회차에 들어온 관객을 «전부» 센다.
-       ⚠ 2026-08-13 — 여기 있던 joined_at 기준점 필터를 뺐다. 큐를 GO 할 때마다
-         기준점이 다시 잡혀 이미 접속한 관객이 0 이 됐다(takeBaseline 설명 참고).
-         회차가 섞이는 것은 `?s=` 로 막는다. */
-    const p = await db(`participants?session=eq.${SESSION}&select=device`,
+    /* 접속 인원 — 그 회차에서 «최근 JOIN_WINDOW_MIN 분 안에» 들어온 관객만 센다.
+       ⚠ 2026-08-13 — joined_at «기준점(baseline)» 필터를 뺐다. 큐를 GO 할 때마다
+         기준점이 다시 잡혀 이미 접속한 관객이 0 이 됐기 때문이다.
+       ⚠ 2026-08-15 — 대신 «흐르는 시간 창» 을 넣었다. 기준점과 달리 iframe 이 다시
+         떠도 값이 유지되면서, 며칠 전 시험 기기는 자연히 떨어져 나간다.
+         지금이 언제인지는 서버 시계(serverNow)로 판단한다 — 무대 PC 시계가 아니다. */
+    const cutoff = new Date(serverNow() - JOIN_WINDOW_MIN * 60000).toISOString();
+    const p = await db(`participants?session=eq.${SESSION}` +
+                       `&joined_at=gte.${encodeURIComponent(cutoff)}&select=device`,
                        { headers: { Prefer: "count=exact", Range: "0-0" } });
     const cr = p.headers.get("content-range");       // 예: "0-0/37"
     const n = cr && +cr.split("/")[1];
@@ -2305,15 +2376,25 @@ function renderPhoneSection(n) {
     /* 이어 틀기로 기다리던 안내가 있으면 무른다 — 이미 다음 화면으로 갔는데
        뒤늦게 «연습문제부터 시작해 볼까요» 가 나오면 어긋난다 */
     if (phoneVoiceNow) phoneVoiceNow.onended = null;
+    if (phoneChainTimer) { clearTimeout(phoneChainTimer); phoneChainTimer = null; }
     renderPhoneQuestion();
   };
   if (s.voice) {
     /* ⚠ 첫 지령(참여감사 7.1초)이 아직 나가는 중이면 끊지 않고 «끝난 뒤 이어» 튼다.
        예전엔 여기서 바로 끊어 — 작전 시작 탭 1ms 뒤에 이 화면이 떠서 —
-       관객이 첫 지령을 통째로 못 들었다 (2026-08-15 실측 수정). */
+       관객이 첫 지령을 통째로 못 들었다 (2026-08-15 실측 수정).
+       ⚠ 판정에 `paused` 를 쓰지 않는다 — 폰에서는 play() 직후에도 잠깐 true 로
+         남아, «안 나가고 있다» 고 잘못 읽고 둘을 겹쳐 틀었다 (2026-08-15 재수정). */
     const cur = phoneVoiceNow;
-    if (cur && !cur.paused && cur === phoneVoiceEls["참여감사"]) {
+    if (cur && phoneVoiceKey === "참여감사" && !phoneVoiceDone) {
       cur.onended = () => { cur.onended = null; playPhoneVoice(s.voice); };
+      /* 안전장치 — 파일이 없거나 무음 스위치로 막히면 `ended` 가 영영 안 온다.
+         그러면 «연습문제부터 시작해 볼까요» 가 통째로 사라진다. 넉넉히 기다렸다 튼다. */
+      if (phoneChainTimer) clearTimeout(phoneChainTimer);
+      phoneChainTimer = setTimeout(() => {
+        phoneChainTimer = null;
+        if (cur.onended) { cur.onended = null; playPhoneVoice(s.voice); }
+      }, 9000);
     } else {
       playPhoneVoice(s.voice);
     }
