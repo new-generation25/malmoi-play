@@ -1282,6 +1282,22 @@ function phoneVoiceEl(k) {
   }
   return phoneVoiceEls[k];
 }
+/* 아이폰은 «손짓으로 재생해 본 적 있는» 요소만 나중에 코드로 틀 수 있다.
+   첫 탭(작전 시작) 안에서 나머지 요소들을 음소거로 살짝 틀었다 꺼서 잠금을 푼다.
+   except = 지금 진짜로 틀 것 — 얘는 건드리면 본 재생이 끊긴다 (2026-08-15). */
+function unlockPhoneVoices(except) {
+  for (const k in PHONE_VOICES) {
+    if (k === except) continue;
+    const a = phoneVoiceEl(k);
+    if (a.__unlocked) continue;
+    a.__unlocked = true;
+    a.muted = true;
+    const done = () => { try { a.pause(); a.currentTime = 0; } catch (e) {} a.muted = false; };
+    const p = a.play();
+    if (p && p.then) p.then(done).catch(() => { a.muted = false; a.__unlocked = false; });
+    else done();
+  }
+}
 function playPhoneVoice(k) {
   if (!PHONE_ONLY || !PHONE_VOICES[k]) return;
   /* 앞 말을 끊고 자리를 넘겨받는다 — 폰 화면은 관객이 빠르게 넘길 수 있어
@@ -2165,6 +2181,7 @@ function phoneStart() {
      이 손짓 안에서 잠금을 푼다. */
   armAudio();
   try { audio(); } catch (e) {}
+  unlockPhoneVoices("참여감사");     // 이 손짓 안에서 뒤 음성들(연습시작·비밀요원)의 잠금까지 푼다
   playPhoneVoice("참여감사");        // «참여하신 여러분 감사합니다 …조용히 수행해 주세요»
   startPlay();
 }
@@ -2284,8 +2301,23 @@ function renderPhoneSection(n) {
       <div class="sec-lead">${s.lead}</div>
     </div>
     <div class="ph-foot"><button class="ph-send" id="secGo">${s.btn}</button></div>`;
-  $("secGo").onclick = () => renderPhoneQuestion();
-  if (s.voice) playPhoneVoice(s.voice);
+  $("secGo").onclick = () => {
+    /* 이어 틀기로 기다리던 안내가 있으면 무른다 — 이미 다음 화면으로 갔는데
+       뒤늦게 «연습문제부터 시작해 볼까요» 가 나오면 어긋난다 */
+    if (phoneVoiceNow) phoneVoiceNow.onended = null;
+    renderPhoneQuestion();
+  };
+  if (s.voice) {
+    /* ⚠ 첫 지령(참여감사 7.1초)이 아직 나가는 중이면 끊지 않고 «끝난 뒤 이어» 튼다.
+       예전엔 여기서 바로 끊어 — 작전 시작 탭 1ms 뒤에 이 화면이 떠서 —
+       관객이 첫 지령을 통째로 못 들었다 (2026-08-15 실측 수정). */
+    const cur = phoneVoiceNow;
+    if (cur && !cur.paused && cur === phoneVoiceEls["참여감사"]) {
+      cur.onended = () => { cur.onended = null; playPhoneVoice(s.voice); };
+    } else {
+      playPhoneVoice(s.voice);
+    }
+  }
 }
 
 /* ── 관객 폰: 우리말 모으기 (폰의 마지막 화면) ───────────────
